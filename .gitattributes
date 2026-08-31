@@ -1,6 +1,3 @@
-# Strip repo-UI chrome from release tarballs.
-# Keep: <subpath>/action.yml + lib/* (these are what GitHub downloads at runtime).
-
 .gitattributes                  export-ignore
 .github                         export-ignore
 *.md                            export-ignore

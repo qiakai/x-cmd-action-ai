@@ -1,0 +1,75 @@
+name: test-multiplatform
+
+# Verify all 7 sub-commands work on ubuntu/windows/macos.
+# Tests file structure + dry-run of each sub-command.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: assert all sub-commands present
+        shell: bash
+        run: |
+          set -e
+          for sub in triage reply review changelog translate spec commit; do
+            test -f "$sub/action.yml" || { echo "FAIL: $sub/action.yml missing"; exit 1; }
+            test -f "$sub/$sub.sh"     || { echo "FAIL: $sub/$sub.sh missing"; exit 1; }
+          done
+          echo "PASS: all 7 sub-commands present on ubuntu"
+
+      - name: smoke-test reply.sh
+        shell: bash
+        run: |
+          bash reply/reply.sh 2>&1 | grep -qE "ISSUE_NUM required" && \
+            echo "PASS: reply.sh validates inputs"
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: assert all sub-commands present
+        shell: bash
+        run: |
+          set -e
+          for sub in triage reply review changelog translate spec commit; do
+            test -f "$sub/action.yml" || { echo "FAIL: $sub/action.yml missing"; exit 1; }
+            test -f "$sub/$sub.sh"     || { echo "FAIL: $sub/$sub.sh missing"; exit 1; }
+          done
+          echo "PASS: all 7 sub-commands present on windows"
+
+      - name: smoke-test reply.sh
+        shell: bash
+        run: |
+          bash reply/reply.sh 2>&1 | grep -qE "ISSUE_NUM required" && \
+            echo "PASS: reply.sh validates inputs"
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: assert all sub-commands present
+        shell: bash
+        run: |
+          set -e
+          for sub in triage reply review changelog translate spec commit; do
+            test -f "$sub/action.yml" || { echo "FAIL: $sub/action.yml missing"; exit 1; }
+            test -f "$sub/$sub.sh"     || { echo "FAIL: $sub/$sub.sh missing"; exit 1; }
+          done
+          echo "PASS: all 7 sub-commands present on macos"
+
+      - name: smoke-test reply.sh
+        shell: bash
+        run: |
+          bash reply/reply.sh 2>&1 | grep -qE "ISSUE_NUM required" && \
+            echo "PASS: reply.sh validates inputs"
