@@ -23,9 +23,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: install x-cmd
-      shell: bash
-      run: bash "${{ github.action_path }}/lib/_install-xcmd.sh"
+    - uses: x-cmd-action/x-cmd@v1
 
     - name: run ai reply
       shell: bash
@@ -40,4 +38,4 @@ runs:
         INPUT_COMMENT: ${{ inputs.comment }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_EVENT_NAME: ${{ github.event_name }}
-      run: bash "${{ github.action_path }}/lib/_reply.sh"
+      run: bash "${{ github.action_path }}/reply.sh"

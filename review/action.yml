@@ -14,9 +14,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: install x-cmd
-      shell: bash
-      run: bash "${{ github.action_path }}/lib/_install-xcmd.sh"
+    - uses: x-cmd-action/x-cmd@v1
 
     - name: configure api key
       if: env.MINIMAX_TOKEN != ''
@@ -34,4 +32,4 @@ runs:
         PR_NUM: ${{ github.event.pull_request.number }}
         PR_DIFF: ${{ github.event.pull_request.diff_url }}
         GITHUB_REPOSITORY: ${{ github.repository }}
-      run: bash "${{ github.action_path }}/lib/_review.sh"
+      run: bash "${{ github.action_path }}/review.sh"

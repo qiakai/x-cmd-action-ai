@@ -34,7 +34,6 @@ fi
 
 echo "reply: triggered on $GITHUB_EVENT_NAME for issue #$ISSUE_NUM"
 
-# ── Pick target: comment vs issue ──
 TARGET_DESC="issue #$ISSUE_NUM"
 REACTION_PATH="repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUM/reactions"
 
@@ -45,7 +44,6 @@ fi
 
 echo "reply: target=$TARGET_DESC"
 
-# ── Per-target reaction dedupe ──
 EXISTING=$(gh api "$REACTION_PATH" --jq "[.[] | select(.content == \"$INPUT_REACTION\")] | length" 2>/dev/null || echo 0)
 
 if [ "${EXISTING:-0}" -gt 0 ]; then

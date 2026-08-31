@@ -16,9 +16,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: install x-cmd
-      shell: bash
-      run: bash "${{ github.action_path }}/lib/_install-xcmd.sh"
+    - uses: x-cmd-action/x-cmd@v1
 
     - name: configure api key
       if: env.MINIMAX_TOKEN != ''
@@ -33,4 +31,4 @@ runs:
         MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
         INPUT_MODEL: ${{ inputs.model }}
         INPUT_MODE: ${{ inputs.mode }}
-      run: bash "${{ github.action_path }}/lib/_commit.sh"
+      run: bash "${{ github.action_path }}/commit.sh"

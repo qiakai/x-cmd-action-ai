@@ -9,11 +9,9 @@ set -euo errexit
 
 echo "triage: issue #$ISSUE_NUM model=$INPUT_MODEL"
 
-# ── Gather comments (cap at 10) ──
 COMMENTS=$(gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUM/comments?per_page=10" \
   --jq '[.[] | {user: .user.login, body: .body}]' 2>/dev/null || echo '[]')
 
-# ── Build prompt ──
 PROMPT=$(cat <<EOF
 You are triaging a GitHub issue. Read it and output EXACTLY this format:
 
@@ -32,14 +30,12 @@ $COMMENTS
 EOF
 )
 
-# ── Call AI ──
 echo "triage: calling $INPUT_MODEL..."
 RESPONSE=$(printf '%s' "$PROMPT" | x ai request --model "$INPUT_MODEL" 2>&1) || {
   echo "triage: AI call failed: $RESPONSE"
   exit 1
 }
 
-# ── Post comment ──
 COMMENT_BODY=$(cat <<EOF
 🤖 **ai triage** (\`$INPUT_MODEL\`)
 
@@ -53,11 +49,9 @@ EOF
 
 gh issue comment "$ISSUE_NUM" --body "$COMMENT_BODY"
 
-# ── Apply labels if requested ──
 if [ "$INPUT_APPLY_LABELS" = "true" ]; then
   LABELS=$(printf '%s' "$RESPONSE" | grep -E '^labels:' | sed 's/^labels:[[:space:]]*//' || echo "")
   if [ -n "$LABELS" ]; then
-    # Convert comma-separated to gh CLI args
     LABEL_ARGS=""
     IFS=',' read -ra PARTS <<< "$LABELS"
     for l in "${PARTS[@]}"; do

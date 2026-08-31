@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# x-cmd-action/ai/review — AI PR review (stub — TBD)
+# x-cmd-action/ai/review — AI PR code review (stub — TBD)
 
 set -euo errexit
 
