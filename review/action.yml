@@ -1,0 +1,37 @@
+name: ai/review
+description: |
+  AI PR code review. Reads PR diff, generates structured review (security,
+  style, suggestions). Pure shell.
+
+  Local equivalent: x ai review
+
+inputs:
+  model:
+    description: 'AI model to use.'
+    required: false
+    default: 'minimax'
+
+runs:
+  using: composite
+  steps:
+    - name: install x-cmd
+      shell: bash
+      run: bash "${{ github.action_path }}/lib/_install-xcmd.sh"
+
+    - name: configure api key
+      if: env.MINIMAX_TOKEN != ''
+      shell: bash
+      env:
+        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+      run: x minimax --cfg apikey="$MINIMAX_TOKEN"
+
+    - name: run ai review
+      shell: bash
+      env:
+        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+        INPUT_MODEL: ${{ inputs.model }}
+        GH_TOKEN: ${{ github.token }}
+        PR_NUM: ${{ github.event.pull_request.number }}
+        PR_DIFF: ${{ github.event.pull_request.diff_url }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: bash "${{ github.action_path }}/lib/_review.sh"

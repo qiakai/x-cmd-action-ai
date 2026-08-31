@@ -1,0 +1,36 @@
+name: ai/commit
+description: |
+  Conventional Commits compliance check + auto-generate commit message from diff.
+
+  Local equivalent: x ai commit
+
+inputs:
+  mode:
+    description: 'check (validate existing msg) or generate (write new msg).'
+    required: true
+  model:
+    description: 'AI model to use.'
+    required: false
+    default: 'minimax'
+
+runs:
+  using: composite
+  steps:
+    - name: install x-cmd
+      shell: bash
+      run: bash "${{ github.action_path }}/lib/_install-xcmd.sh"
+
+    - name: configure api key
+      if: env.MINIMAX_TOKEN != ''
+      shell: bash
+      env:
+        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+      run: x minimax --cfg apikey="$MINIMAX_TOKEN"
+
+    - name: run ai commit
+      shell: bash
+      env:
+        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+        INPUT_MODEL: ${{ inputs.model }}
+        INPUT_MODE: ${{ inputs.mode }}
+      run: bash "${{ github.action_path }}/lib/_commit.sh"

@@ -1,0 +1,43 @@
+name: ai/triage
+description: |
+  AI triage for new issues. Reads issue body, suggests labels and priority,
+  applies them, links to milestone. Pure shell.
+
+  Local equivalent: x ai triage
+
+inputs:
+  model:
+    description: 'AI model to use (e.g. minimax, openai:gpt-4).'
+    required: false
+    default: 'minimax'
+  apply-labels:
+    description: 'Apply suggested labels (true) or just comment (false).'
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: install x-cmd
+      shell: bash
+      run: bash "${{ github.action_path }}/lib/_install-xcmd.sh"
+
+    - name: configure api key
+      if: env.MINIMAX_TOKEN != ''
+      shell: bash
+      env:
+        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+      run: x minimax --cfg apikey="$MINIMAX_TOKEN"
+
+    - name: run ai triage
+      shell: bash
+      env:
+        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+        INPUT_MODEL: ${{ inputs.model }}
+        INPUT_APPLY_LABELS: ${{ inputs.apply-labels }}
+        GH_TOKEN: ${{ github.token }}
+        ISSUE_NUM: ${{ github.event.issue.number }}
+        ISSUE_TITLE: ${{ github.event.issue.title }}
+        ISSUE_BODY: ${{ github.event.issue.body }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: bash "${{ github.action_path }}/lib/_triage.sh"

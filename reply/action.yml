@@ -1,0 +1,43 @@
+name: ai/reply
+description: |
+  React + reply when a configurable keyword is mentioned in issue/comment.
+  Strict word-boundary match. Per-target reaction dedupe.
+  Concurrency-safe: single in-flight + single pending.
+
+  Local equivalent: x ai reply
+
+inputs:
+  keyword:
+    description: 'Trigger keyword (default @x). Word-boundary matched.'
+    required: false
+    default: '@x'
+  reaction:
+    description: 'Reaction name (eyes, rocket, +1, heart, etc.).'
+    required: false
+    default: 'eyes'
+  comment:
+    description: 'Reply comment body.'
+    required: false
+    default: '👀 on it'
+
+runs:
+  using: composite
+  steps:
+    - name: install x-cmd
+      shell: bash
+      run: bash "${{ github.action_path }}/lib/_install-xcmd.sh"
+
+    - name: run ai reply
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        ISSUE_NUM: ${{ github.event.issue.number }}
+        COMMENT_ID: ${{ github.event.comment.id }}
+        ISSUE_BODY: ${{ github.event.issue.body }}
+        COMMENT_BODY: ${{ github.event.comment.body }}
+        INPUT_KEYWORD: ${{ inputs.keyword }}
+        INPUT_REACTION: ${{ inputs.reaction }}
+        INPUT_COMMENT: ${{ inputs.comment }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+      run: bash "${{ github.action_path }}/lib/_reply.sh"

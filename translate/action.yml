@@ -1,0 +1,40 @@
+name: ai/translate
+description: |
+  AI translation of Markdown / i18n files.
+
+  Local equivalent: x ai translate
+
+inputs:
+  source:
+    description: 'Source file path (relative to repo root).'
+    required: true
+  target:
+    description: 'Target language code (zh, ja, fr, etc.).'
+    required: true
+  model:
+    description: 'AI model to use.'
+    required: false
+    default: 'minimax'
+
+runs:
+  using: composite
+  steps:
+    - name: install x-cmd
+      shell: bash
+      run: bash "${{ github.action_path }}/lib/_install-xcmd.sh"
+
+    - name: configure api key
+      if: env.MINIMAX_TOKEN != ''
+      shell: bash
+      env:
+        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+      run: x minimax --cfg apikey="$MINIMAX_TOKEN"
+
+    - name: run ai translate
+      shell: bash
+      env:
+        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+        INPUT_MODEL: ${{ inputs.model }}
+        INPUT_SOURCE: ${{ inputs.source }}
+        INPUT_TARGET: ${{ inputs.target }}
+      run: bash "${{ github.action_path }}/lib/_translate.sh"

@@ -1,0 +1,39 @@
+name: ai/changelog
+description: |
+  Generate weekly changelog from closed issues + merged PRs.
+
+  Local equivalent: x ai changelog
+
+inputs:
+  days:
+    description: 'Look back N days (default 7 = weekly).'
+    required: false
+    default: '7'
+  model:
+    description: 'AI model to use.'
+    required: false
+    default: 'minimax'
+
+runs:
+  using: composite
+  steps:
+    - name: install x-cmd
+      shell: bash
+      run: bash "${{ github.action_path }}/lib/_install-xcmd.sh"
+
+    - name: configure api key
+      if: env.MINIMAX_TOKEN != ''
+      shell: bash
+      env:
+        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+      run: x minimax --cfg apikey="$MINIMAX_TOKEN"
+
+    - name: run ai changelog
+      shell: bash
+      env:
+        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+        INPUT_MODEL: ${{ inputs.model }}
+        INPUT_DAYS: ${{ inputs.days }}
+        GH_TOKEN: ${{ github.token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: bash "${{ github.action_path }}/lib/_changelog.sh"
