@@ -19,6 +19,8 @@ runs:
   steps:
     - uses: x-cmd-action/x-cmd@v1
 
+    - uses: actions/checkout@v4
+
     - name: configure api key
       if: env.MINIMAX_TOKEN != ''
       shell: bash
