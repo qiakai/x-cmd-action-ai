@@ -25,7 +25,7 @@ runs:
   steps:
     - uses: x-cmd-action/x-cmd@v1
 
-    - uses: actions/checkout@v4
+    - uses: x-cmd-action/this-repo@v1
 
     - name: run ai reply
       shell: bash

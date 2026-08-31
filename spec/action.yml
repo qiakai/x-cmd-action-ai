@@ -18,7 +18,7 @@ runs:
   steps:
     - uses: x-cmd-action/x-cmd@v1
 
-    - uses: actions/checkout@v4
+    - uses: x-cmd-action/this-repo@v1
 
     - name: configure api key
       if: env.MINIMAX_TOKEN != ''
