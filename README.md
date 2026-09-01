@@ -125,9 +125,11 @@ Triggered on `issue_comment: created` and `issues: opened`. When a configurable 
 
 **Concurrency-safe:** the action does not manage concurrency itself — that's the caller's job (use `concurrency: cancel-in-progress: false` with `queue: single` default for single in-flight + single pending).
 
-### `ai/review` — AI PR code review *(stub)*
+### `ai/review` — AI PR code review
 
-Triggered on `pull_request: opened` / `synchronize`. Reads the PR diff, runs a security + style review, posts a structured summary as a PR comment. **Not yet implemented** — the action verifies inputs and reports `TODO: implement`. Once `x ai review` is stable on the command line, this will delegate to it.
+Triggered on `pull_request: opened` / `synchronize`. Reads the PR diff via `gh pr diff`, asks the AI for security / style / suggestions / summary, posts a structured comment on the PR.
+
+Diffs larger than 1500 lines are truncated (configurable via `max-diff-lines`) to keep prompts sane.
 
 ```yaml
 - uses: actions/checkout@v4
@@ -137,9 +139,11 @@ Triggered on `pull_request: opened` / `synchronize`. Reads the PR diff, runs a s
     MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
 ```
 
-### `ai/changelog` — weekly changelog generator *(stub)*
+### `ai/changelog` — weekly changelog generator
 
-Triggered on `schedule: cron`. Collects issues closed in the last N days + PRs merged, asks the AI to group them into `feat / fix / perf / docs`, posts or commits a changelog.
+Triggered on `schedule: cron` (recommended weekly: Mon 9am UTC). Collects issues closed in the last N days + PRs merged, asks the AI to group them into `Features / Fixes / Performance / Docs / Other`, writes the result.
+
+`output: file` writes to `CHANGELOG.md` (configurable); `output: comment` writes to stdout (caller's responsibility).
 
 ```yaml
 on:
@@ -154,43 +158,56 @@ jobs:
       - uses: x-cmd-action/ai/changelog@v1
         with:
           days: 7
+          output: file      # or 'comment'
         env:
           MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
 ```
 
-### `ai/translate` — AI i18n translation *(stub)*
+### `ai/translate` — AI i18n translation
 
-Reads a Markdown file, asks the AI to translate to a target language, writes the result. Useful for `README.md → README.cn.md` workflows.
+Reads a Markdown file, asks the AI to translate to a target language, writes the result. Markdown-aware — code blocks are preserved (not translated), URLs and proper nouns are kept. Files larger than 3000 lines are truncated.
+
+Useful for `README.md → README.cn.md` workflows.
 
 ```yaml
 - uses: x-cmd-action/ai/translate@v1
   with:
     source: README.md
-    target: zh
+    target: zh           # ISO 639-1 code
+    # output: README.zh.md   # optional, default: <stem>.<target>.<ext>
   env:
     MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
 ```
 
-### `ai/spec` — RFC templates & post-mortems *(stub)*
+### `ai/spec` — RFC templates & post-mortems
 
-Two modes: `rfc` (auto-fill an RFC template from a feature request issue) and `postmortem` (extract a structured post-mortem from a closed bug issue).
+Two modes:
+
+- `rfc` — auto-fill an RFC template from a feature request issue. The AI reads the issue + labels, produces a structured RFC document with Summary / Motivation / Detailed Design / Alternatives / Drawbacks / Open Questions sections.
+- `postmortem` — extract a structured post-mortem from a closed bug issue. The AI reads the issue + comments (which usually contain debugging + fix discussion), produces Summary / Timeline / Root Cause / Detection / Resolution / Lessons Learned / Action Items.
 
 ```yaml
 - uses: x-cmd-action/ai/spec@v1
   with:
-    mode: rfc   # or 'postmortem'
+    mode: rfc            # or 'postmortem'
   env:
     MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
 ```
 
-### `ai/commit` — Conventional Commits *(stub)*
+### `ai/commit` — Conventional Commits
 
-Two modes: `check` (validate that commit messages in the current branch conform to Conventional Commits) and `generate` (write a commit message from the staged diff). Pairs naturally with `ai/changelog` — the cleaner the commit history, the better the auto-generated changelog.
+Two modes:
+
+- `check` — validate that commits in the current branch (vs `origin/main`) conform to [Conventional Commits](https://www.conventionalcommits.org/). Fails the workflow by default if any commits don't conform (`fail-on-invalid: false` to make it advisory).
+- `generate` — write a commit message from the staged (or unstaged) diff using the AI.
+
+Pairs naturally with `ai/changelog` — the cleaner the commit history, the better the auto-generated changelog.
 
 ```yaml
 - uses: x-cmd-action/ai/commit@v1
   with:
-    mode: check   # or 'generate'
+    mode: check          # or 'generate'
+    fail-on-invalid: 'true'   # check mode only
 ```
 
 ## Comparison: why sub-path actions instead of `task:` input?
@@ -229,11 +246,19 @@ Each sub-command tarball is ~16 KB.
 
 ## Status
 
-- ✅ `triage` — implemented (calls `x ai request` with structured prompt)
-- ✅ `reply` — implemented (no AI token required; deterministic reaction + reply)
-- ⏳ `review`, `changelog`, `translate`, `spec`, `commit` — stub (verify inputs, report `TODO: implement`)
+All seven sub-commands are **implemented** as of v1:
 
-Each stub will become a real implementation as the corresponding `x ai <subcmd>` stabilizes on the command line.
+| Sub-command | Implementation |
+|---|---|
+| `triage` | Calls `x ai request` with structured prompt (type/priority/area/labels/summary), applies labels |
+| `reply` | Strict word-boundary keyword match, per-target reaction dedupe (no AI token required) |
+| `review` | Fetches PR diff via `gh pr diff`, asks AI for security/style/suggestions/summary, posts as PR comment |
+| `changelog` | Collects closed issues + merged PRs in last N days, AI groups by feat/fix/perf/docs |
+| `translate` | Reads file, AI i18n translation (Markdown-aware, preserves code blocks) |
+| `spec` | RFC template fill-in (mode=rfc) or post-mortem extraction (mode=postmortem) from issue + comments |
+| `commit` | Conventional Commits check (regex against commit log) or AI generate from staged diff |
+
+All AI sub-commands require `MINIMAX_TOKEN` env (or equivalent `x <provider> --cfg apikey=...` config).
 
 ## License
 

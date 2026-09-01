@@ -125,9 +125,11 @@ x-cmd-action/ai/<subcmd>@v1
 
 **并发安全**:action 自己不管并发,需要调用方配 `concurrency: cancel-in-progress: false`(默认 `queue: single`,单 in-flight + 单 pending)。
 
-### `ai/review` — AI PR 代码审查 *(占位)*
+### `ai/review` — AI PR 代码审查
 
-`pull_request: opened` / `synchronize` 触发。读 PR diff,跑安全 + 规范审查,发结构化评论。**暂未实现** — 当前只校验输入、报 `TODO: implement`。等 `x ai review` 在命令行稳定,这里就调过去。
+`pull_request: opened` / `synchronize` 触发。用 `gh pr diff` 拿 PR diff,问 AI 要 security / style / suggestions / summary,作为结构化评论发到 PR 上。
+
+超过 1500 行的 diff 会被截断(可通过 `max-diff-lines` 配置),保持 prompt 在合理大小。
 
 ```yaml
 - uses: actions/checkout@v4
@@ -137,9 +139,11 @@ x-cmd-action/ai/<subcmd>@v1
     MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
 ```
 
-### `ai/changelog` — 周报生成器 *(占位)*
+### `ai/changelog` — 周报生成器
 
-`schedule: cron` 触发。收集过去 N 天关闭的 Issue + 合并的 PR,问 AI 按 `feat / fix / perf / docs` 分组,输出 changelog。
+`schedule: cron` 触发(推荐:周一 9 点 UTC)。收集过去 N 天关闭的 Issue + 合并的 PR,问 AI 按 `Features / Fixes / Performance / Docs / Other` 分组,生成 changelog。
+
+`output: file` 写到 `CHANGELOG.md`(可配置);`output: comment` 输出到 stdout(由调用方决定)。
 
 ```yaml
 on:
@@ -154,43 +158,56 @@ jobs:
       - uses: x-cmd-action/ai/changelog@v1
         with:
           days: 7
+          output: file      # 或 'comment'
         env:
           MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
 ```
 
-### `ai/translate` — AI 多语言翻译 *(占位)*
+### `ai/translate` — AI 多语言翻译
 
-读一个 Markdown 文件,问 AI 翻译到目标语言,写出去。常用于 `README.md → README.cn.md`。
+读一个 Markdown 文件,问 AI 翻译到目标语言,写出去。Markdown 友好 — code block 不翻译(保留原文),URL 和专有名词不动。文件超过 3000 行会被截断。
+
+常用于 `README.md → README.cn.md`。
 
 ```yaml
 - uses: x-cmd-action/ai/translate@v1
   with:
     source: README.md
-    target: zh
+    target: zh           # ISO 639-1 代码
+    # output: README.zh.md   # 可选,默认: <stem>.<target>.<ext>
   env:
     MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
 ```
 
-### `ai/spec` — RFC 模板 + 故障复盘 *(占位)*
+### `ai/spec` — RFC 模板 + 故障复盘
 
-两种模式:`rfc`(从 feature request issue 自动填 RFC 模板)和 `postmortem`(从已关闭 bug issue 提取结构化复盘)。
+两种模式:
+
+- `rfc` — 从 feature request issue 自动填 RFC 模板。AI 读 issue + labels,产出含 Summary / Motivation / Detailed Design / Alternatives / Drawbacks / Open Questions 章节的结构化文档。
+- `postmortem` — 从已关闭 bug issue 提取结构化复盘。AI 读 issue + comments(通常包含 debug + fix 讨论),产出 Summary / Timeline / Root Cause / Detection / Resolution / Lessons Learned / Action Items。
 
 ```yaml
 - uses: x-cmd-action/ai/spec@v1
   with:
-    mode: rfc   # 或 'postmortem'
+    mode: rfc            # 或 'postmortem'
   env:
     MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
 ```
 
-### `ai/commit` — Conventional Commits *(占位)*
+### `ai/commit` — Conventional Commits
 
-两种模式:`check`(校验当前分支 commit message 是否符合规范)与 `generate`(从 staged diff 写 commit message)。跟 `ai/changelog` 是天生搭档 — commit 历史越干净,自动 changelog 越好。
+两种模式:
+
+- `check` — 校验当前分支(vs `origin/main`)的 commits 是否符合 [Conventional Commits](https://www.conventionalcommits.org/)。默认不通过就 fail workflow(`fail-on-invalid: false` 改成 advisory)。
+- `generate` — 用 AI 从 staged(或 unstaged)diff 写 commit message。
+
+跟 `ai/changelog` 是天生搭档 — commit 历史越干净,自动 changelog 越好。
 
 ```yaml
 - uses: x-cmd-action/ai/commit@v1
   with:
-    mode: check   # 或 'generate'
+    mode: check          # 或 'generate'
+    fail-on-invalid: 'true'   # 仅 check 模式生效
 ```
 
 ## 选型对比:为什么用子路径 action 而不是 `task:` 输入?
@@ -229,11 +246,19 @@ commit/action.yml + commit/commit.sh
 
 ## 实现进度
 
-- ✅ `triage` — 已实现(调用 `x ai request` 跑结构化 prompt)
-- ✅ `reply` — 已实现(不需要 AI token;确定性 reaction + reply)
-- ⏳ `review`、`changelog`、`translate`、`spec`、`commit` — 占位(只校验输入、报 `TODO: implement`)
+v1 起,七个子命令**全部已实现**:
 
-每个占位都会在对应 `x ai <subcmd>` 命令行稳定后变成真实现。
+| Sub-command | 实现 |
+|---|---|
+| `triage` | 调 `x ai request` 跑结构化 prompt(type/priority/area/labels/summary),自动贴标签 |
+| `reply` | 严格词边界匹配,per-target reaction 去重(不需要 AI token) |
+| `review` | 用 `gh pr diff` 拿 PR diff,问 AI 要 security/style/suggestions/summary,作为 PR 评论发出去 |
+| `changelog` | 收集过去 N 天关闭的 Issue + 合并的 PR,AI 按 feat/fix/perf/docs 分组 |
+| `translate` | 读文件,AI i18n 翻译(保留 Markdown,code block 不译) |
+| `spec` | RFC 模板自动填(mode=rfc) 或 故障复盘提取(mode=postmortem) |
+| `commit` | Conventional Commits 检查(正则匹配 commit log)或 AI 从 staged diff 生成 |
+
+所有 AI 子命令需要 `MINIMAX_TOKEN` env(或等价 `x <provider> --cfg apikey=...` 配置)。
 
 ## 协议
 
