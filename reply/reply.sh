@@ -3,9 +3,9 @@
 
 set -euo errexit
 
-# Ensure x-cmd is available in CI where the install step only creates ~/.x-cmd.root/X.
-if ! command -v x >/dev/null 2>&1 && [ -f "$HOME/.x-cmd.root/X" ]; then
-  . "$HOME/.x-cmd.root/X"
+# Ensure x-cmd is available in CI where the install step only creates ~/.x-cmd.root.
+if ! command -v x >/dev/null 2>&1 && [ -d "$HOME/.x-cmd.root/bin" ]; then
+  export PATH="$HOME/.x-cmd.root/bin:$PATH"
 fi
 
 : "${INPUT_KEYWORD:=@x}"
