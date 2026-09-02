@@ -29,7 +29,7 @@ inputs:
     required: false
     default: 'x-chat'
   provider:
-    description: 'AI provider for credential setup (minimax, deepseek, openai). Overrides model prefix.'
+    description: 'AI provider for credential setup (minimax, deepseek, openai). If empty, inferred from API key env vars.'
     required: false
     default: ''
   model:
