@@ -1,7 +1,6 @@
 name: reply
 
-# Live test: when @x is mentioned in an issue/comment, react + reply.
-# No AI token required (reply has no AI call).
+# Live test: when @x is mentioned in an issue/comment, react + AI reply via MiniMax.
 
 on:
   issue_comment:
@@ -13,7 +12,7 @@ on:
 concurrency:
   group: aireply-bot
   cancel-in-progress: false
-  # queue omitted → defaults to 'single' (last pending wins)
+  # queue omitted -> defaults to 'single' (last pending wins)
 
 jobs:
   reply:
@@ -23,8 +22,11 @@ jobs:
       contents: read
       issues: write
     steps:
-      - uses: x-cmd-action/ai/reply@v1
+      - uses: qiakai/x-cmd-action-ai/reply@feat/ai-reply
         with:
           keyword: '@x'
           reaction: eyes
-          comment: '👀 on it'
+          use_ai: 'true'
+          provider: 'minimax'
+        env:
+          MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
