@@ -28,10 +28,18 @@ inputs:
     description: 'AI harness to use when use_ai is true.'
     required: false
     default: 'x-chat'
+  provider:
+    description: 'AI provider for credential setup (minimax, deepseek, openai). Overrides model prefix.'
+    required: false
+    default: ''
+  model:
+    description: 'AI model to use. Format is provider-specific, e.g. gpt-4, deepseek-chat.'
+    required: false
+    default: ''
   prompt:
     description: 'Prefix prompt for AI reply generation.'
     required: false
-    default: '请根据以下 GitHub Issue/评论内容，给出一个简洁、友好且有用的回复：'
+    default: 'Please reply to the following GitHub Issue/comment in a concise, friendly, and helpful manner:'
 
 runs:
   using: composite
@@ -54,6 +62,8 @@ runs:
         INPUT_COMMENT: ${{ inputs.comment }}
         INPUT_USE_AI: ${{ inputs.use_ai }}
         INPUT_HARNESS: ${{ inputs.harness }}
+        INPUT_PROVIDER: ${{ inputs.provider }}
+        INPUT_MODEL: ${{ inputs.model }}
         INPUT_PROMPT: ${{ inputs.prompt }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_EVENT_NAME: ${{ github.event_name }}

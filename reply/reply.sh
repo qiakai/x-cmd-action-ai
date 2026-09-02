@@ -8,6 +8,50 @@ set -euo errexit
 : "${INPUT_COMMENT:=👀 on it}"
 : "${ISSUE_NUM:?ISSUE_NUM required}"
 
+# ── Configure AI provider / apikey when AI mode is used ──
+setup_ai() {
+  local provider="${INPUT_PROVIDER:-}"
+  local model="${INPUT_MODEL:-}"
+  local api_key
+
+  # Fallback provider detection from common API key env vars.
+  if [ -z "$provider" ]; then
+    if [ -n "${MINIMAX_TOKEN:-${MINIMAX_APIKEY:-}}" ]; then provider=minimax
+    elif [ -n "${DEEPSEEK_API_KEY:-${DEEPSEEK_APIKEY:-}}" ]; then provider=deepseek
+    elif [ -n "${OPENAI_API_KEY:-${OPENAI_APIKEY:-}}" ]; then provider=openai
+    else provider=minimax
+    fi
+  fi
+
+  echo "reply: configuring ai provider=$provider model=${model:-default}"
+
+  case "$provider" in
+    minimax)
+      api_key="${MINIMAX_TOKEN:-${MINIMAX_APIKEY:-}}"
+      [ -n "$api_key" ] && x minimax --cfg apikey="$api_key"
+      [ -n "$model" ] && x minimax --cfg model="$model"
+      ;;
+    deepseek)
+      api_key="${DEEPSEEK_API_KEY:-${DEEPSEEK_APIKEY:-}}"
+      [ -n "$api_key" ] && x deepseek --cfg apikey="$api_key"
+      [ -n "$model" ] && x deepseek --cfg model="$model"
+      ;;
+    openai)
+      api_key="${OPENAI_API_KEY:-${OPENAI_APIKEY:-}}"
+      [ -n "$api_key" ] && x openai --cfg apikey="$api_key"
+      [ -n "$model" ] && x openai --cfg model="$model"
+      ;;
+    *)
+      echo "reply: unknown provider '$provider', skipping credential setup"
+      ;;
+  esac
+
+  # Point the x-chat harness at the chosen provider.
+  if [ "${INPUT_HARNESS:-x-chat}" = "x-chat" ]; then
+    x chat --cur provider="$provider" 2>/dev/null || true
+  fi
+}
+
 # ── Strict keyword match (word boundary) ──
 KEYWORD_RE_ESCAPED=$(printf '%s' "$INPUT_KEYWORD" | sed 's/[][\.*^$()+?{|/]/\\&/g')
 PATTERN="(^|[^a-zA-Z0-9_-])${KEYWORD_RE_ESCAPED}([^a-zA-Z0-9_-]|$)"
@@ -47,7 +91,9 @@ echo "reply: target=$TARGET_DESC"
 # ── Build reply body (static or AI-generated) ──
 if [ "${INPUT_USE_AI:-false}" = "true" ]; then
   : "${INPUT_HARNESS:=x-chat}"
-  : "${INPUT_PROMPT:=请根据以下 GitHub Issue/评论内容，给出一个简洁、友好且有用的回复：}"
+  : "${INPUT_PROMPT:=Please reply to the following GitHub Issue/comment in a concise, friendly, and helpful manner:}"
+
+  setup_ai
 
   if [ "$GITHUB_EVENT_NAME" = "issue_comment" ]; then
     CONTEXT="Issue #$ISSUE_NUM${ISSUE_TITLE:+: $ISSUE_TITLE}
