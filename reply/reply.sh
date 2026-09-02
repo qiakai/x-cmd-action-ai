@@ -138,7 +138,7 @@ $CONTEXT"
   # Strip reasoning blocks and extract wrapped output content if present.
   RESPONSE=$(printf '%s' "$RESPONSE" | sed -e '/<think>/,/<\/think>/d')
   if printf '%s' "$RESPONSE" | grep -q '<OUTPUT-CONTENT>'; then
-    RESPONSE=$(printf '%s' "$RESPONSE" | awk '/<OUTPUT-CONTENT>/{flag=1; next} /<\\/?OUTPUT-CONTENT>/{flag=0} flag')
+    RESPONSE=$(printf '%s' "$RESPONSE" | sed -n '/<OUTPUT-CONTENT>/,/<\/OUTPUT-CONTENT>/p' | sed '1d;$d')
   fi
 
   # Trim leading/trailing whitespace.
