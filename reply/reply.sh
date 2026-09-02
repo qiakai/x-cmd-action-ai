@@ -113,10 +113,15 @@ ${ISSUE_BODY:-}"
 $CONTEXT"
 
   echo "reply: calling ai (harness=$INPUT_HARNESS)..."
-  RESPONSE=$(x agent request --harness "$INPUT_HARNESS" "$PROMPT" 2>&1) || {
-    echo "reply: AI call failed: $RESPONSE"
+  AI_OUTPUT=$(mktemp)
+  trap 'rm -f "$AI_OUTPUT"' EXIT
+
+  if ! x agent request --harness "$INPUT_HARNESS" --output "$AI_OUTPUT" --overwrite "$PROMPT" >/dev/null 2>&1; then
+    echo "reply: AI call failed"
     exit 1
-  }
+  fi
+
+  RESPONSE=$(cat "$AI_OUTPUT" 2>/dev/null || true)
 
   # Trim leading/trailing whitespace.
   REPLY_TEXT=$(printf '%s' "$RESPONSE" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
