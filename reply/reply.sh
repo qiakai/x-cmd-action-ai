@@ -125,6 +125,12 @@ $CONTEXT"
 
   # Trim leading/trailing whitespace.
   REPLY_TEXT=$(printf '%s' "$RESPONSE" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+  # Guard against empty / broken AI responses.
+  if [ -z "$REPLY_TEXT" ]; then
+    echo "reply: AI returned empty response, falling back to static comment"
+    REPLY_TEXT="$INPUT_COMMENT"
+  fi
 else
   REPLY_TEXT="$INPUT_COMMENT"
 fi
