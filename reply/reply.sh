@@ -117,6 +117,9 @@ ${ISSUE_BODY:-}"
 
 $CONTEXT"
 
+  # Pre-configure the default harness so x agent request doesn't fall back.
+  x agent --cur set zero_harness="$INPUT_HARNESS" 2>/dev/null || true
+
   echo "reply: calling ai (harness=$INPUT_HARNESS)..."
   AI_OUTPUT=$(mktemp)
   AI_LOG=$(mktemp)
