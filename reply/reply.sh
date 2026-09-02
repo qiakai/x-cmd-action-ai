@@ -122,13 +122,10 @@ $CONTEXT"
 
   echo "reply: calling ai (harness=$INPUT_HARNESS)..."
   AI_OUTPUT=$(mktemp)
-  AI_LOG=$(mktemp)
-  trap 'rm -f "$AI_OUTPUT" "$AI_LOG"' EXIT
+  trap 'rm -f "$AI_OUTPUT"' EXIT
 
-  if ! x agent request --harness "$INPUT_HARNESS" --output "$AI_OUTPUT" --overwrite "$PROMPT" >/dev/null 2>"$AI_LOG"; then
+  if ! x agent request --harness "$INPUT_HARNESS" --output "$AI_OUTPUT" --overwrite "$PROMPT"; then
     echo "reply: AI call failed"
-    echo "--- ai log ---"
-    cat "$AI_LOG" 2>/dev/null || true
     exit 1
   fi
 
