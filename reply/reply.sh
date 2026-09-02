@@ -44,6 +44,40 @@ fi
 
 echo "reply: target=$TARGET_DESC"
 
+# ── Build reply body (static or AI-generated) ──
+if [ "${INPUT_USE_AI:-false}" = "true" ]; then
+  : "${INPUT_HARNESS:=x-chat}"
+  : "${INPUT_PROMPT:=请根据以下 GitHub Issue/评论内容，给出一个简洁、友好且有用的回复：}"
+
+  if [ "$GITHUB_EVENT_NAME" = "issue_comment" ]; then
+    CONTEXT="Issue #$ISSUE_NUM${ISSUE_TITLE:+: $ISSUE_TITLE}
+
+${ISSUE_BODY:-}
+
+Comment:
+${COMMENT_BODY:-}"
+  else
+    CONTEXT="Issue #$ISSUE_NUM${ISSUE_TITLE:+: $ISSUE_TITLE}
+
+${ISSUE_BODY:-}"
+  fi
+
+  PROMPT="$INPUT_PROMPT
+
+$CONTEXT"
+
+  echo "reply: calling ai (harness=$INPUT_HARNESS)..."
+  RESPONSE=$(x agent request --harness "$INPUT_HARNESS" "$PROMPT" 2>&1) || {
+    echo "reply: AI call failed: $RESPONSE"
+    exit 1
+  }
+
+  # Trim leading/trailing whitespace.
+  REPLY_TEXT=$(printf '%s' "$RESPONSE" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+else
+  REPLY_TEXT="$INPUT_COMMENT"
+fi
+
 EXISTING=$(gh api "$REACTION_PATH" --jq "[.[] | select(.content == \"$INPUT_REACTION\")] | length" 2>/dev/null || echo 0)
 
 if [ "${EXISTING:-0}" -gt 0 ]; then
@@ -56,7 +90,7 @@ gh api -X POST "$REACTION_PATH" \
   echo "reply: added :$INPUT_REACTION: on $TARGET_DESC" || \
   echo "reply: failed to add reaction (may already exist)"
 
-COMMENT_BODY="$INPUT_COMMENT
+COMMENT_BODY="$REPLY_TEXT
 
 <sub>Replied by [x-cmd-action/ai](https://github.com/x-cmd-action/ai)</sub>"
 
