@@ -45,6 +45,8 @@ runs:
   using: composite
   steps:
     - uses: x-cmd-action/x-cmd@v1
+      with:
+        stream: x7
 
     - uses: x-cmd-action/this-repo@v1
 
