@@ -135,6 +135,12 @@ $CONTEXT"
 
   RESPONSE=$(cat "$AI_OUTPUT" 2>/dev/null || true)
 
+  # Strip reasoning blocks and extract wrapped output content if present.
+  RESPONSE=$(printf '%s' "$RESPONSE" | sed -e '/<think>/,/<\/think>/d')
+  if printf '%s' "$RESPONSE" | grep -q '<OUTPUT-CONTENT>'; then
+    RESPONSE=$(printf '%s' "$RESPONSE" | awk '/<OUTPUT-CONTENT>/{flag=1; next} /<\\/?OUTPUT-CONTENT>/{flag=0} flag')
+  fi
+
   # Trim leading/trailing whitespace.
   REPLY_TEXT=$(printf '%s' "$RESPONSE" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 
