@@ -1,0 +1,164 @@
+name: ai-call-probe
+
+# Isolate `x agent request` on ubuntu-slim vs ubuntu-latest to find where
+# the AI call hangs. Bypasses reply.sh entirely — runs the same commands
+# that reply.sh issues, but with strict timeout, full stderr capture, and
+# a one-liner prompt so the LLM round-trip is short.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: "ai-call (matrix.runner)"
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-latest
+          - ubuntu-slim
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: x-cmd-action/x-cmd@v1
+        with:
+          stream: x7
+
+      - uses: x-cmd-action/this-repo@v1
+
+      - name: ai call (isolated)
+        shell: bash
+        env:
+          MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+        run: |
+          # No -e anywhere — we want to capture every failure mode.
+          set +e
+          set +u
+          set +o pipefail
+          # x-cmd-action installs ~/.x-cmd.root but the next GH Actions
+          # step runs under `bash --noprofile --norc`, so ~/.bashrc is
+          # never sourced. reply.sh has a defensive PATH+=...
+          # ~/.x-cmd.root/bin fallback; mirror that here.
+          export PATH="$HOME/.x-cmd.root/bin:$PATH"
+          # Source x-cmd boot — its opening lines probe unset vars, so
+          # `set -u` must come AFTER sourcing, not before.
+          [ -f "$HOME/.x-cmd.root/X" ] && . "$HOME/.x-cmd.root/X" || {
+            echo "FATAL: cannot source $HOME/.x-cmd.root/X"
+            exit 0
+          }
+          OUT=/tmp/ai-out.txt
+          ERR=/tmp/ai-err.log
+          : > "$OUT"
+          : > "$ERR"
+          export LC_ALL=C
+
+          echo "## runner=${{ matrix.runner }}"
+          echo "## uname: $(uname -a)"
+          echo "## awk:  $(awk --version 2>&1 | head -1 || echo mawk)"
+          echo "## curl: $(curl --version | head -1)"
+          echo "## x env: $(command -v x || echo MISSING)"
+          echo
+
+          echo "## step 1: configure provider"
+          x minimax --cfg apikey="$MINIMAX_TOKEN" >"$OUT" 2>"$ERR"
+          PR=$?
+          echo "provider step rc=$PR"
+          if [ "$PR" = "0" ]; then echo "  out:"; cat "$OUT" | head -10; fi
+          if [ -s "$ERR" ]; then echo "  err:"; cat "$ERR" | head -10; fi
+          echo
+
+          echo "## step 2: warm-up — short prompt with 30s timeout"
+          PROMPT="Reply with the single word 'pong'."
+          START=$(date +%s)
+          if timeout 30 x agent request \
+                --harness x-chat \
+                --output "$OUT" \
+                --overwrite \
+                "$PROMPT" \
+                2>>"$ERR" ; then
+              DUR=$(($(date +%s) - START))
+              echo "short call returned in ${DUR}s, exit 0"
+              echo "out: $(cat $OUT | head -c 300)"
+          else
+              RC=$?
+              DUR=$(($(date +%s) - START))
+              echo "short call timed out / non-zero after ${DUR}s, rc=$RC"
+          fi
+          echo
+          echo "## step 3: stderr tail"
+          tail -50 "$ERR" 2>/dev/null || echo "(empty)"
+          echo
+
+          echo "## step 4: long prompt mirroring reply.sh (~5KB, includes CJK detection)"
+          # Approximate the prompt size/script that reply.sh feeds to
+          # the agent. This is the load that hangs reply.yml's slim run.
+          : > "$OUT"
+          LONG_PROMPT=$(
+              printf '%s\n' "Repository: x-cmd-action/ai"
+              printf '%s\n' "Repository description: AI reply (slack-style AI gate) and friends"
+              printf '%s\n' ""
+              printf '%s\n' "Issue #11: [slim-test-4] reply via . ~/.x-cmd.root/X"
+              printf '%s\n' ""
+              printf '%s\n' "What is a practical tip for using ubuntu-slim with x-cmd in GitHub Actions?"
+              printf '%s\n' "Mention 3 things: (1) how to source x-cmd; (2) what to watch out for with mawk vs gawk in shell scripts; (3) timing expectations."
+              printf '%s\n' ""
+              printf '%s\n' "You are a terse expert. No preamble. Use markdown bullets. Plain ASCII under 200 words."
+          )
+          BYTES=$(printf '%s' "$LONG_PROMPT" | wc -c)
+          echo "long prompt bytes: $BYTES"
+          START=$(date +%s)
+          if timeout 60 x agent request \
+                --harness x-chat \
+                --output "$OUT" \
+                --overwrite \
+                "$LONG_PROMPT" \
+                2>>"$ERR" ; then
+              DUR=$(($(date +%s) - START))
+              echo "long call returned in ${DUR}s"
+              echo "out (first 400 chars): $(cat $OUT | head -c 400)"
+          else
+              RC=$?
+              DUR=$(($(date +%s) - START))
+              echo "long call timed out / non-zero after ${DUR}s, rc=$RC"
+          fi
+          echo
+          echo "## step 5: x minimax --cfg read/write roundtrip"
+          echo "5a: set apikey=foo"
+          x minimax --cfg apikey=foo 2>&1 | head -3 ; echo "  rc=$?"
+          echo "5b: cat"
+          x minimax --cfg cat 2>&1 | head -3 ; echo "  rc=$?"
+          echo "5c: set model=M-XX"
+          x minimax --cfg model=M-XX 2>&1 | head -3 ; echo "  rc=$?"
+          echo "5d: cat"
+          x minimax --cfg cat 2>&1 | head -3 ; echo "  rc=$?"
+          echo "5e: set both"
+          x minimax --cfg apikey=BAR 2>&1 | head -3 ; echo "  rc=$?"
+          x minimax --cfg model=BAZ 2>&1 | head -3 ; echo "  rc=$?"
+          echo "5f: cat again"
+          x minimax --cfg cat 2>&1 | head -10 ; echo "  rc=$?"
+          echo "5g: --cfg help"
+          x minimax --cfg help 2>&1 | head -20 ; echo "  rc=$?"
+          echo "5h: --help"
+          x minimax --help 2>&1 | head -10 ; echo "  rc=$?"
+
+          echo "## step 6: env-var-only path (no cfg)"
+          unset MINIMAX_TOKEN
+          echo "MINIMAX_TOKEN env=$MINIMAX_TOKEN"
+          echo "running x minimax --cfg cat under subshell (no env passed in):"
+          ( x minimax --cfg cat ) || echo "  subshell failed"
+          echo "running with env MINIMAX_TOKEN re-set:"
+          MINIMAX_TOKEN="${MINIMAX_TOKEN:-}" ( x minimax --cfg cat ) || echo "  still failed"
+          echo "what does MINIMAX_TOKEN env look like:"
+          echo "  $MINIMAX_TOKEN" | head -c 50
+
+          echo
+          echo "## step 6: final stderr tail"
+          tail -100 "$ERR" 2>/dev/null
+          echo
+
+          echo "## step 7: dump /proc status before exit"
+          ps -ef | grep -E "x agent|curl|awk|python" | head -20 || true

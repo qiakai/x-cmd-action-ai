@@ -1,3 +1,10 @@
+# Strip repo-UI chrome. Ship only what each sub-command needs at runtime:
+# action.yml + script (+ built-in prompt defaults where applicable).
 .gitattributes                  export-ignore
 .github                         export-ignore
 *.md                            export-ignore
+
+# Override: keep built-in prompt default for ai/reply.
+# git's gitattributes doesn't support negative patterns, so list
+# the file explicitly as a non-ignored entry.
+reply/prompt.default.md         !export-ignore
