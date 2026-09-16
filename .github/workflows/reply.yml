@@ -29,6 +29,6 @@ jobs:
           reaction: eyes
           comment: '👀 on it'
           use_ai: 'true'
-          provider: minimax
         env:
+          # x-cmd picks up the provider credentials from this env var.
           MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}

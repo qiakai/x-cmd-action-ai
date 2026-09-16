@@ -42,82 +42,9 @@ fi
 : "${INPUT_REACTION:=eyes}"
 : "${INPUT_COMMENT:=👀 on it}"
 : "${ISSUE_NUM:?ISSUE_NUM required}"
-: "${INPUT_PROVIDER:=}"
-: "${INPUT_MODEL:=}"
-: "${INPUT_HARNESS:=x-chat}"
 : "${INPUT_USE_AI:=false}"
 : "${GH_TOKEN:?GH_TOKEN required}"
 debug "after param defaults: ISSUE_NUM=$ISSUE_NUM USE_AI=$INPUT_USE_AI"
-
-# ── Configure AI provider / apikey when AI mode is used ──
-setup_ai() {
-  debug "setup_ai: ENTER (PARAMS: $* — FUNCNAME=${FUNCNAME[*]@K})"
-  local provider="${INPUT_PROVIDER:-}"
-  debug "setup_ai: provider=$provider"
-  local model="${INPUT_MODEL:-}"
-  debug "setup_ai: model=$model"
-  local api_key
-  debug "setup_ai: api_key declared"
-
-  # Fallback provider detection from common API key env vars.
-  if [ -z "$provider" ]; then
-    if [ -n "${MINIMAX_TOKEN:-${MINIMAX_APIKEY:-}}" ]; then provider=minimax
-    elif [ -n "${DEEPSEEK_API_KEY:-${DEEPSEEK_APIKEY:-}}" ]; then provider=deepseek
-    elif [ -n "${OPENAI_API_KEY:-${OPENAI_APIKEY:-}}" ]; then provider=openai
-    else provider=minimax
-    fi
-  fi
-
-  echo "reply: configuring ai provider=$provider model=${model:-default}"
-  debug "setup_ai: about to enter case"
-
-  case "$provider" in
-    minimax)
-      debug "setup_ai: case=minimax before MINIMAX_TOKEN expansion"
-      api_key="${MINIMAX_TOKEN:-${MINIMAX_APIKEY:-}}"
-      debug "setup_ai: api_key len=${#api_key}"
-      debug "setup_ai: type x = $(type x 2>&1 | head -1)"
-      debug "setup_ai: about to call x minimax in subshell"
-      # Subshell wrapper: x minimax is a sourced-in shell function that
-      # can `exit 1` internally. A subshell confines inner exit; outer
-      # `if` keeps the rest of the script decoupled from the rc.
-      if [ -n "$api_key" ]; then
-        ( x minimax --cfg apikey="$api_key" 2>/dev/null ) || debug "x minimax --cfg apikey non-zero"
-        debug "setup_ai: after first x minimax"
-      else
-        debug "setup_ai: api_key empty, skip"
-      fi
-      if [ -n "$model" ]; then
-        ( x minimax --cfg model="$model" 2>/dev/null ) || debug "x minimax --cfg model non-zero"
-        debug "setup_ai: after second x minimax"
-      else
-        debug "setup_ai: model empty, skip"
-      fi
-      ;;
-    deepseek)
-      api_key="${DEEPSEEK_API_KEY:-${DEEPSEEK_APIKEY:-}}"
-      [ -n "$api_key" ] && x deepseek --cfg apikey="$api_key" || true
-      [ -n "$model" ] && x deepseek --cfg model="$model" || true
-      ;;
-    openai)
-      api_key="${OPENAI_API_KEY:-${OPENAI_APIKEY:-}}"
-      [ -n "$api_key" ] && x openai --cfg apikey="$api_key" || true
-      [ -n "$model" ] && x openai --cfg model="$model" || true
-      ;;
-    *)
-      echo "reply: unknown provider '$provider', skipping credential setup"
-      ;;
-  esac
-
-  debug "setup_ai: case done"
-  # Point the x-chat harness at the chosen provider.
-  if [ "${INPUT_HARNESS:-x-chat}" = "x-chat" ]; then
-    debug "setup_ai: about to x chat --cur provider (subshell)"
-    ( x chat --cur provider="$provider" 2>/dev/null ) || debug "x chat --cur non-zero"
-    debug "setup_ai: after x chat --cur"
-  fi
-  debug "setup_ai: EXIT"
-}
 
 # ── Strict keyword match (word boundary) ──
 KEYWORD_RE_ESCAPED=$(printf '%s' "$INPUT_KEYWORD" | sed 's/[][\.*^$()+?{|/]/\\&/g')
@@ -157,11 +84,10 @@ echo "reply: target=$TARGET_DESC"
 
 # ── Build reply body (static or AI-generated) ──
 if [ "${INPUT_USE_AI:-false}" = "true" ]; then
-  # Provider cfg is best-effort: env-var fallback covers every
-  # supported provider. setup_ai internally tolerates failures.
-  debug "calling setup_ai (provider=$INPUT_PROVIDER, model=${INPUT_MODEL:-default})"
-  setup_ai
-  debug "setup_ai_rc=$?"
+  # AI generation is delegated to `x ai reply`. x-cmd picks the provider
+  # and credentials itself (e.g. from the MINIMAX_TOKEN env var), so no
+  # provider/apikey/model setup happens here — we only assemble the text
+  # to reply to and feed it in.
 
   # Resolve the system prompt in priority order:
   #   1. inputs.prompt (inline, highest priority)
@@ -237,84 +163,42 @@ User language: $REPLY_LANG
 
 $CONTEXT"
 
-  debug "before x agent --cur set zero_harness (subshell)"
-  # Pre-configure the default harness so x agent request doesn't fall back.
-  ( x agent --cur set zero_harness="$INPUT_HARNESS" 2>/dev/null ) || debug "x agent --cur non-zero"
-  debug "after x agent --cur set"
-
-  debug "before mktemp"
-  echo "reply: calling ai (harness=$INPUT_HARNESS)..."
+  echo "reply: calling x ai reply..."
   AI_OUTPUT=$(mktemp)
-  debug "AI_OUTPUT=$AI_OUTPUT"
-  AGENT_STDERR=$(mktemp)
-  debug "AGENT_STDERR=$AGENT_STDERR"
-  trap 'rm -f "$AI_OUTPUT" "$AGENT_STDERR"' EXIT
+  AI_STDERR=$(mktemp)
+  debug "AI_OUTPUT=$AI_OUTPUT AI_STDERR=$AI_STDERR"
+  trap 'rm -f "$AI_OUTPUT" "$AI_STDERR"' EXIT
 
-  debug "before x agent request"
-  # x agent request spawns child processes that hold temp files; do NOT
-  # wrap in a subshell or its post-run cleanup races on those files
-  # ("corrupted data file" / "cannot open pidofsubshell.pid"). The 'if !'
-  # already masks non-zero exits; we add a defensive || true fallback
-  # for the inner failure cases.
+  # `x ai reply` prints the drafted reply on stdout; progress/log lines
+  # go to stderr. It resolves the provider + credentials (MINIMAX_TOKEN
+  # etc.) internally. Wrap in an `if !`/`|| RC=$?` pattern instead of a
+  # subshell so sourced-in x-cmd internals can't exit this script.
   RC=0
-  x agent request --harness "$INPUT_HARNESS" --output "$AI_OUTPUT" --overwrite "$PROMPT" 2>"$AGENT_STDERR" || RC=$?
-  debug "x agent request rc=$RC"
+  x ai reply "$PROMPT" >"$AI_OUTPUT" 2>"$AI_STDERR" || RC=$?
+  debug "x ai reply rc=$RC"
   if [ "$RC" != "0" ]; then
     echo "reply: AI call failed (rc=$RC)"
-    debug "agent stderr tail: $(tail -15 "$AGENT_STDERR" 2>/dev/null | tr '\n' '|')"
   fi
-  debug "after x agent request"
-  debug "agent stderr full (last 500 chars): $(tail -c 500 "$AGENT_STDERR" 2>/dev/null | tr '\n' '|')"
-  debug "AI_OUTPUT size: $(wc -c <"$AI_OUTPUT")B"
-  debug "AI_OUTPUT content: $(head -c 200 "$AI_OUTPUT")"
+  debug "ai stderr tail: $(tail -c 500 "$AI_STDERR" 2>/dev/null | tr '\n' '|')"
+  debug "AI_OUTPUT size: $(wc -c <"$AI_OUTPUT" 2>/dev/null)B"
 
   RESPONSE=$(cat "$AI_OUTPUT" 2>/dev/null || true)
 
-  # Strip reasoning blocks (multiline), x agent stdout tail noise, and
-  # any wrapped output fences. Order matters:
-  #   1. Drop <OUTPUT-CONTENT>...</OUTPUT-CONTENT> wrappers — keep inside.
-  if printf '%s' "$RESPONSE" | grep -q '<OUTPUT-CONTENT>'; then
-    RESPONSE=$(printf '%s' "$RESPONSE" | awk '/<OUTPUT-CONTENT>/{flag=1; next} /<\/OUTPUT-CONTENT>/{flag=0} flag' 2>/dev/null || true)
-  fi
-  #   2. Drop <think>...</think> blocks (multiline). If a line opens <think>
-  #      but no closing tag appears, KEEP the rest of the line (don't drop
-  #      everything — model sometimes returns truncated thinking).
-  RESPONSE=$(printf '%s' "$RESPONSE" | awk '
-    BEGIN{depth=0}
-    {
-      line = $0
-      out  = ""
-      while (length(line) > 0) {
-        if (depth == 0) {
-          p = index(line, "<think>")
-          if (p == 0) { out = out line; break }
-          out = out substr(line, 1, p - 1)
-          line = substr(line, p + RLENGTH_7)
-          depth = 1
-        } else {
-          p = index(line, "</think>")
-          if (p == 0) { out = out line; break }
-          line = substr(line, p + RLENGTH_8)
-          depth = 0
-        }
-      }
-      print out
-    }
-  ' 2>/dev/null || printf '%s' "$RESPONSE")
-  #   3. Drop x agent's "exitcode" / "stats" / "I|log" tail lines.
-  #      grep -vE returns 1 when nothing matches, which trips `set -e`.
-  RESPONSE=$(printf '%s' "$RESPONSE" | grep -vE '^-[[:space:]]*[✓✗WIE]\||exitcode:|^[[:space:]]*tags\.[[:space:]]*Let me' 2>/dev/null || printf '%s' "$RESPONSE")
-  #   4. Drop "Let me ..." agent monologue lines.
-  RESPONSE=$(printf '%s' "$RESPONSE" | grep -vE '^[[:space:]]*Let me (first|continue|structure|update)' 2>/dev/null || printf '%s' "$RESPONSE")
+  # Defensive: drop any stray progress/log lines that leak onto stdout.
+  # grep -vE returns 1 when nothing matches, hence the `||` fallback.
+  RESPONSE=$(printf '%s' "$RESPONSE" | grep -vE '^-[[:space:]]*[✓✗WIE]\||exitcode:' 2>/dev/null || printf '%s' "$RESPONSE")
 
   # Trim leading/trailing whitespace.
   REPLY_TEXT=$(printf '%s' "$RESPONSE" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' 2>/dev/null || printf '%s' "$RESPONSE")
 
   # Guard against empty / broken AI responses.
-  if [ -z "$REPLY_TEXT" ]; then
-    echo "reply: AI returned empty response, falling back to static comment"
-    REPLY_TEXT="$INPUT_COMMENT"
-  fi
+  # `___ASK_FAILED___:` is x-cmd's internal failure marker.
+  case "$REPLY_TEXT" in
+    ""|___ASK_FAILED___*)
+      echo "reply: AI returned empty/failed response, falling back to static comment"
+      REPLY_TEXT="$INPUT_COMMENT"
+      ;;
+  esac
 else
   REPLY_TEXT="$INPUT_COMMENT"
 fi
