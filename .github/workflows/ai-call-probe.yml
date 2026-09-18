@@ -33,7 +33,7 @@ jobs:
       - name: ai call (isolated)
         shell: bash
         env:
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         run: |
           # No -e anywhere — we want to capture every failure mode.
           set +e

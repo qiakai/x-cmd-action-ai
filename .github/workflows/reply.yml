@@ -31,4 +31,4 @@ jobs:
           use_ai: 'true'
         env:
           # x-cmd picks up the provider credentials from this env var.
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}

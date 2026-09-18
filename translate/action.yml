@@ -27,13 +27,13 @@ runs:
       if: env.MINIMAX_API_KEY != ''
       shell: bash
       env:
-        MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+        MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
       run: x minimax --cfg apikey="$MINIMAX_API_KEY"
 
     - name: run ai translate
       shell: bash
       env:
-        MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+        MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         INPUT_MODEL: ${{ inputs.model }}
         INPUT_SOURCE: ${{ inputs.source }}
         INPUT_TARGET: ${{ inputs.target }}

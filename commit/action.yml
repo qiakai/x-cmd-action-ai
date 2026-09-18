@@ -24,13 +24,13 @@ runs:
       if: env.MINIMAX_API_KEY != ''
       shell: bash
       env:
-        MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+        MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
       run: x minimax --cfg apikey="$MINIMAX_API_KEY"
 
     - name: run ai commit
       shell: bash
       env:
-        MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+        MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         INPUT_MODEL: ${{ inputs.model }}
         INPUT_MODE: ${{ inputs.mode }}
       run: bash "${{ github.action_path }}/commit.sh"

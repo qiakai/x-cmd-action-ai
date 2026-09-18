@@ -72,7 +72,7 @@ x-cmd-action/ai/
 
 5. **Pure shell, no Node.js.** All scripts are POSIX `bash`. No `npm install`, no dependency tree, fast cold-start. The tarball per sub-command is ~16 KB.
 
-6. **AI token via env, not action input.** The token is read from `MINIMAX_API_KEY` env var (passed via `secrets.MINIMAX_TOKEN`). Local equivalent: `x minimax --cfg apikey=...`.
+6. **AI token via env, not action input.** The token is read from `MINIMAX_API_KEY` env var (passed via `secrets.MINIMAX_API_KEY`). Local equivalent: `x minimax --cfg apikey=...`.
 
 ### Dependency graph
 
@@ -80,7 +80,7 @@ x-cmd-action/ai/
 x-cmd-action/ai/<subcmd>@v1
   ├── uses → x-cmd-action/x-cmd@v1          # install x-cmd
   ├── uses → x-cmd-action/this-repo@v1       # clone current repo for gh context
-  └── uses → secrets.MINIMAX_TOKEN (env)     # only sub-commands that call an LLM
+  └── uses → secrets.MINIMAX_API_KEY (env)     # only sub-commands that call an LLM
 ```
 
 ## Sub-command details
@@ -95,7 +95,7 @@ Triggered on `issues: opened`. Reads the issue body + comments, asks the AI for 
     model: minimax         # or openai:gpt-4, anthropic:claude-fable-5, ...
     apply-labels: 'true'   # or 'false' to comment only
   env:
-    MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 | Input | Default | Description |
@@ -136,7 +136,7 @@ Diffs larger than 1500 lines are truncated (configurable via `max-diff-lines`) t
   with: { fetch-depth: 0 }
 - uses: x-cmd-action/ai/review@v1
   env:
-    MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 ### `ai/changelog` — weekly changelog generator
@@ -160,7 +160,7 @@ jobs:
           days: 7
           output: file      # or 'comment'
         env:
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 ### `ai/translate` — AI i18n translation
@@ -176,7 +176,7 @@ Useful for `README.md → README.cn.md` workflows.
     target: zh           # ISO 639-1 code
     # output: README.zh.md   # optional, default: <stem>.<target>.<ext>
   env:
-    MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 ### `ai/spec` — RFC templates & post-mortems
@@ -191,7 +191,7 @@ Two modes:
   with:
     mode: rfc            # or 'postmortem'
   env:
-    MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 ### `ai/commit` — Conventional Commits

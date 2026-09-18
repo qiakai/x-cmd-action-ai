@@ -22,13 +22,13 @@ runs:
       if: env.MINIMAX_API_KEY != ''
       shell: bash
       env:
-        MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+        MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
       run: x minimax --cfg apikey="$MINIMAX_API_KEY"
 
     - name: run ai review
       shell: bash
       env:
-        MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+        MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         INPUT_MODEL: ${{ inputs.model }}
         GH_TOKEN: ${{ github.token }}
         PR_NUM: ${{ github.event.pull_request.number }}

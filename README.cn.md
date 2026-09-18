@@ -72,7 +72,7 @@ x-cmd-action/ai/
 
 5. **纯 shell,无 Node.js**。脚本都是 POSIX `bash`。不用 `npm install`,冷启动快。每个子命令的 tarball 仅约 16 KB。
 
-6. **AI token 走环境变量**。读 `MINIMAX_API_KEY` env var(由 `secrets.MINIMAX_TOKEN` 传入)。本地等价:`x minimax --cfg apikey=...`。
+6. **AI token 走环境变量**。读 `MINIMAX_API_KEY` env var(由 `secrets.MINIMAX_API_KEY` 传入)。本地等价:`x minimax --cfg apikey=...`。
 
 ### 依赖图
 
@@ -80,7 +80,7 @@ x-cmd-action/ai/
 x-cmd-action/ai/<subcmd>@v1
   ├── uses → x-cmd-action/x-cmd@v1          # 安装 x-cmd
   ├── uses → x-cmd-action/this-repo@v1       # clone 当前仓库,给 gh 用
-  └── uses → secrets.MINIMAX_TOKEN (env)     # 仅调用 LLM 的子命令需要
+  └── uses → secrets.MINIMAX_API_KEY (env)     # 仅调用 LLM 的子命令需要
 ```
 
 ## 子命令详解
@@ -95,7 +95,7 @@ x-cmd-action/ai/<subcmd>@v1
     model: minimax         # 或 openai:gpt-4, anthropic:claude-fable-5, ...
     apply-labels: 'true'   # 'false' 只评论不贴标签
   env:
-    MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 | Input | 默认 | 说明 |
@@ -136,7 +136,7 @@ x-cmd-action/ai/<subcmd>@v1
   with: { fetch-depth: 0 }
 - uses: x-cmd-action/ai/review@v1
   env:
-    MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 ### `ai/changelog` — 周报生成器
@@ -160,7 +160,7 @@ jobs:
           days: 7
           output: file      # 或 'comment'
         env:
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 ### `ai/translate` — AI 多语言翻译
@@ -176,7 +176,7 @@ jobs:
     target: zh           # ISO 639-1 代码
     # output: README.zh.md   # 可选,默认: <stem>.<target>.<ext>
   env:
-    MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 ### `ai/spec` — RFC 模板 + 故障复盘
@@ -191,7 +191,7 @@ jobs:
   with:
     mode: rfc            # 或 'postmortem'
   env:
-    MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 ### `ai/commit` — Conventional Commits
