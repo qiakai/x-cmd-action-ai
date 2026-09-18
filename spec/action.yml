@@ -5,8 +5,8 @@ description: |
   Local equivalent: x ai spec
 
   Requires the provider token as caller-side env (e.g.
-  `MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}`) — composite
-  action steps cannot reference the secrets context directly.
+  MINIMAX_API_KEY) — composite action steps cannot reference the
+  secrets context directly.
 
 inputs:
   mode:
