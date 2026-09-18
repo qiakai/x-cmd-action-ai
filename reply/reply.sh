@@ -23,19 +23,25 @@
 # This trades a small amount of early-failure speed for not being
 # killed by a sourced function that exits.
 
-debug() { printf 'DEBUG[%s] %s\n' "$(date +%T.%3N)" "$*" >&2; }
-
 # Resolve action dir robustly.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-debug "SCRIPT_DIR=$SCRIPT_DIR"
 : "${ACTION_PATH:=$SCRIPT_DIR}"
 
-# Bring x-cmd into scope.
-if [ -f "$HOME/.x-cmd.root/X" ]; then
-  debug "sourcing $HOME/.x-cmd.root/X"
-  # `.` cannot be wrapped in `( )` (we want the env to leak into us).
-  . "$HOME/.x-cmd.root/X" || debug "X source non-zero (continuing)"
-  debug "x now: $(command -v x || echo MISSING)"
+# The x-cmd-action/x-cmd step only installs x-cmd onto disk. Each `run`
+# step is a fresh non-interactive shell, so the `x` function must be
+# sourced in here. Everything below depends on it — fail fast if absent.
+if [ ! -f "$HOME/.x-cmd.root/X" ]; then
+  echo "reply: ERROR — x-cmd not installed at $HOME/.x-cmd.root/X" >&2
+  echo "reply: the x-cmd-action/x-cmd step must run before this action" >&2
+  exit 1
+fi
+if ! . "$HOME/.x-cmd.root/X"; then
+  echo "reply: ERROR — failed to source $HOME/.x-cmd.root/X" >&2
+  exit 1
+fi
+if ! command -v x >/dev/null 2>&1; then
+  echo "reply: ERROR — 'x' command unavailable after sourcing x-cmd" >&2
+  exit 1
 fi
 
 : "${INPUT_KEYWORD:=@x}"
@@ -44,7 +50,6 @@ fi
 : "${ISSUE_NUM:?ISSUE_NUM required}"
 : "${INPUT_USE_AI:=false}"
 : "${GH_TOKEN:?GH_TOKEN required}"
-debug "after param defaults: ISSUE_NUM=$ISSUE_NUM USE_AI=$INPUT_USE_AI"
 
 # ── Strict keyword match (word boundary) ──
 KEYWORD_RE_ESCAPED=$(printf '%s' "$INPUT_KEYWORD" | sed 's/[][\.*^$()+?{|/]/\\&/g')
@@ -87,28 +92,22 @@ if [ "${INPUT_USE_AI:-false}" = "true" ]; then
   # AI generation is delegated to `x ai reply`, which has the issue-safety
   # rules (untrusted input, no secrets, no guessing APIs) built into its
   # prompt. x-cmd picks the provider and credentials itself (e.g. from the
-  # MINIMAX_API_KEY env var), so no provider/apikey/model setup happens here —
-  # we only assemble the repo/issue context to reply to.
+  # MINIMAX_API_KEY env var), so no provider/apikey/model setup happens
+  # here — we only assemble the repo/issue context to reply to.
 
   # Pull repo context (owner/name + description) so the AI doesn't
   # guess — it's already running inside this repo and can be referenced.
-  debug "calling gh repo view"
   REPO_INFO=$(gh repo view --json nameWithOwner,description 2>/dev/null || echo '{}')
   REPO_NAME=$(printf '%s' "$REPO_INFO" | jq -r '.nameWithOwner // empty' 2>/dev/null || printf '')
   REPO_DESC=$(printf '%s' "$REPO_INFO" | jq -r '.description // empty' 2>/dev/null || printf '')
-  debug "repo_name=$REPO_NAME repo_desc=${REPO_DESC:0:30}"
 
-  debug "before COMBINED_TEXT"
   COMBINED_TEXT="${ISSUE_TITLE:-}${ISSUE_BODY:-}${COMMENT_BODY:-}"
-  debug "COMBINED_TEXT_LEN=${#COMBINED_TEXT}"
   if printf '%s' "$COMBINED_TEXT" | grep -qE '[一-龥]'; then
     REPLY_LANG="zh-CN"
   else
     REPLY_LANG="en"
   fi
-  debug "REPLY_LANG=$REPLY_LANG"
 
-  debug "before CONTEXT block"
   if [ "$GITHUB_EVENT_NAME" = "issue_comment" ]; then
     CONTEXT="Repository: ${REPO_NAME:-unknown}
 Repository description: ${REPO_DESC:-n/a}
@@ -157,26 +156,16 @@ $CONTEXT"
 $PROMPT"
   fi
 
+  # `x ai reply` prints the drafted reply on stdout; stderr (progress,
+  # harness logs) is left untouched so it shows up in the Actions log
+  # for debugging. It resolves the provider + credentials (MINIMAX_API_KEY
+  # etc.) internally.
   echo "reply: calling x ai reply..."
-  AI_OUTPUT=$(mktemp)
-  AI_STDERR=$(mktemp)
-  debug "AI_OUTPUT=$AI_OUTPUT AI_STDERR=$AI_STDERR"
-  trap 'rm -f "$AI_OUTPUT" "$AI_STDERR"' EXIT
-
-  # `x ai reply` prints the drafted reply on stdout; progress/log lines
-  # go to stderr. It resolves the provider + credentials (MINIMAX_API_KEY
-  # etc.) internally. Wrap in an `if !`/`|| RC=$?` pattern instead of a
-  # subshell so sourced-in x-cmd internals can't exit this script.
   RC=0
-  x ai reply "$PROMPT" >"$AI_OUTPUT" 2>"$AI_STDERR" || RC=$?
-  debug "x ai reply rc=$RC"
+  RESPONSE=$(x ai reply "$PROMPT") || RC=$?
   if [ "$RC" != "0" ]; then
-    echo "reply: AI call failed (rc=$RC)"
+    echo "reply: AI call failed (rc=$RC) — see stderr output above"
   fi
-  debug "ai stderr tail: $(tail -c 500 "$AI_STDERR" 2>/dev/null | tr '\n' '|')"
-  debug "AI_OUTPUT size: $(wc -c <"$AI_OUTPUT" 2>/dev/null)B"
-
-  RESPONSE=$(cat "$AI_OUTPUT" 2>/dev/null || true)
 
   # Defensive: drop any stray progress/log lines that leak onto stdout.
   # grep -vE returns 1 when nothing matches, hence the `||` fallback.
