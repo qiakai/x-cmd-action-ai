@@ -87,7 +87,7 @@ if [ "${INPUT_USE_AI:-false}" = "true" ]; then
   # AI generation is delegated to `x ai reply`, which has the issue-safety
   # rules (untrusted input, no secrets, no guessing APIs) built into its
   # prompt. x-cmd picks the provider and credentials itself (e.g. from the
-  # MINIMAX_TOKEN env var), so no provider/apikey/model setup happens here —
+  # MINIMAX_API_KEY env var), so no provider/apikey/model setup happens here —
   # we only assemble the repo/issue context to reply to.
 
   # Pull repo context (owner/name + description) so the AI doesn't
@@ -164,7 +164,7 @@ $PROMPT"
   trap 'rm -f "$AI_OUTPUT" "$AI_STDERR"' EXIT
 
   # `x ai reply` prints the drafted reply on stdout; progress/log lines
-  # go to stderr. It resolves the provider + credentials (MINIMAX_TOKEN
+  # go to stderr. It resolves the provider + credentials (MINIMAX_API_KEY
   # etc.) internally. Wrap in an `if !`/`|| RC=$?` pattern instead of a
   # subshell so sourced-in x-cmd internals can't exit this script.
   RC=0
