@@ -21,9 +21,9 @@ area: <one-word area label>
 labels: <comma-separated labels>
 summary: <one-line summary>
 
-Issue #$ISSUE_NUM: $ISSUE_TITLE
+Issue #$ISSUE_NUM: ${ISSUE_TITLE:-}
 
-$ISSUE_BODY
+${ISSUE_BODY:-}
 
 Comments:
 $COMMENTS

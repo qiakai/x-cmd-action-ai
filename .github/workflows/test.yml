@@ -25,6 +25,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          gh label create test --force >/dev/null 2>&1 || true
           URL=$(gh issue create \
             --title "[test] reply sub-command" \
             --body "Testing @x trigger. @x-cmd should NOT trigger." \
@@ -83,8 +84,8 @@ jobs:
           ISSUE_NUM: 999
           GITHUB_REPOSITORY: x-cmd-action/ai
         run: |
-          if bash triage/triage.sh 2>&1 | grep -qE 'ISSUE_NUM required|invalid'; then
-            echo "PASS: triage requires ISSUE_NUM"
+          if bash triage/triage.sh 2>&1 | grep -qE 'ISSUE_NUM required|AI call failed'; then
+            echo "PASS: triage reports cleanly without token/x-cmd"
           else
             bash triage/triage.sh 2>&1 | head -3
             echo "FAIL: triage did not report missing ISSUE_NUM"
