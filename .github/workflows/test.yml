@@ -96,30 +96,40 @@ jobs:
         env:
           PR_NUM: 1
         run: |
-          bash review/review.sh 2>&1 | grep -q 'TODO' && echo "PASS: review stub OK"
+          out=$(bash review/review.sh 2>&1 || true)
+          echo "$out" | head -3
+          echo "$out" | grep -q '^review:' && echo "PASS: review starts up" || { echo "FAIL: review did not start"; exit 1; }
 
       - name: changelog (no token)
         env:
           INPUT_DAYS: 7
         run: |
-          bash changelog/changelog.sh 2>&1 | grep -q 'TODO' && echo "PASS: changelog stub OK"
+          out=$(bash changelog/changelog.sh 2>&1 || true)
+          echo "$out" | head -3
+          echo "$out" | grep -q '^changelog:' && echo "PASS: changelog starts up" || { echo "FAIL: changelog did not start"; exit 1; }
 
       - name: translate (no token)
         env:
           INPUT_SOURCE: 'README.md'
           INPUT_TARGET: 'zh'
         run: |
-          bash translate/translate.sh 2>&1 | grep -q 'TODO' && echo "PASS: translate stub OK"
+          out=$(bash translate/translate.sh 2>&1 || true)
+          echo "$out" | head -3
+          echo "$out" | grep -q '^translate:' && echo "PASS: translate starts up" || { echo "FAIL: translate did not start"; exit 1; }
 
       - name: spec (no token)
         env:
           INPUT_MODE: 'rfc'
           ISSUE_NUM: 1
         run: |
-          bash spec/spec.sh 2>&1 | grep -q 'TODO' && echo "PASS: spec stub OK"
+          out=$(bash spec/spec.sh 2>&1 || true)
+          echo "$out" | head -3
+          echo "$out" | grep -q '^spec:' && echo "PASS: spec starts up" || { echo "FAIL: spec did not start"; exit 1; }
 
       - name: commit (no token)
         env:
           INPUT_MODE: 'check'
         run: |
-          bash commit/commit.sh 2>&1 | grep -q 'TODO' && echo "PASS: commit stub OK"
+          out=$(bash commit/commit.sh 2>&1 || true)
+          echo "$out" | head -3
+          echo "$out" | grep -q '^commit:' && echo "PASS: commit starts up" || { echo "FAIL: commit did not start"; exit 1; }
