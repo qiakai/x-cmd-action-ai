@@ -4,6 +4,10 @@ description: |
 
   Local equivalent: x ai changelog
 
+  Requires the provider token as caller-side env (e.g.
+  `MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}`) — composite
+  action steps cannot reference the secrets context directly.
+
 inputs:
   days:
     description: 'Look back N days (default 7 = weekly).'
@@ -21,7 +25,6 @@ runs:
     - name: run ai changelog
       shell: bash
       env:
-        MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         INPUT_DAYS: ${{ inputs.days }}
         GH_TOKEN: ${{ github.token }}
         GITHUB_REPOSITORY: ${{ github.repository }}

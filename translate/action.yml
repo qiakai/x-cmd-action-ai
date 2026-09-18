@@ -4,6 +4,10 @@ description: |
 
   Local equivalent: x ai translate
 
+  Requires the provider token as caller-side env (e.g.
+  `MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}`) — composite
+  action steps cannot reference the secrets context directly.
+
 inputs:
   source:
     description: 'Source file path (relative to repo root).'
@@ -23,7 +27,6 @@ runs:
     - name: run ai translate
       shell: bash
       env:
-        MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         INPUT_SOURCE: ${{ inputs.source }}
         INPUT_TARGET: ${{ inputs.target }}
       run: bash "${{ github.action_path }}/translate.sh"

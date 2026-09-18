@@ -5,6 +5,10 @@ description: |
 
   Local equivalent: x ai review
 
+  Requires the provider token as caller-side env (e.g.
+  `MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}`) — composite
+  action steps cannot reference the secrets context directly.
+
 inputs:
 
 runs:
@@ -18,7 +22,6 @@ runs:
     - name: run ai review
       shell: bash
       env:
-        MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         GH_TOKEN: ${{ github.token }}
         PR_NUM: ${{ github.event.pull_request.number }}
         PR_DIFF: ${{ github.event.pull_request.diff_url }}

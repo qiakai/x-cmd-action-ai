@@ -4,6 +4,10 @@ description: |
 
   Local equivalent: x ai spec
 
+  Requires the provider token as caller-side env (e.g.
+  `MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}`) — composite
+  action steps cannot reference the secrets context directly.
+
 inputs:
   mode:
     description: 'rfc (auto-fill RFC template) or postmortem (extract from closed bug).'
@@ -20,7 +24,6 @@ runs:
     - name: run ai spec
       shell: bash
       env:
-        MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         INPUT_MODE: ${{ inputs.mode }}
         GH_TOKEN: ${{ github.token }}
         ISSUE_NUM: ${{ github.event.issue.number }}

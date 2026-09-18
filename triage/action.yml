@@ -5,6 +5,10 @@ description: |
 
   Local equivalent: x ai triage
 
+  Requires the provider token as caller-side env (e.g.
+  `MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}`) — composite
+  action steps cannot reference the secrets context directly.
+
 inputs:
   apply-labels:
     description: 'Apply suggested labels (true) or just comment (false).'
@@ -22,7 +26,6 @@ runs:
     - name: run ai triage
       shell: bash
       env:
-        MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         INPUT_APPLY_LABELS: ${{ inputs.apply-labels }}
         GH_TOKEN: ${{ github.token }}
         ISSUE_NUM: ${{ github.event.issue.number }}
