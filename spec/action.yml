@@ -8,10 +8,6 @@ inputs:
   mode:
     description: 'rfc (auto-fill RFC template) or postmortem (extract from closed bug).'
     required: true
-  model:
-    description: 'AI model to use.'
-    required: false
-    default: 'minimax'
 
 runs:
   using: composite
@@ -20,18 +16,11 @@ runs:
 
     - uses: x-cmd-action/this-repo@v1
 
-    - name: configure api key
-      if: env.MINIMAX_API_KEY != ''
-      shell: bash
-      env:
-        MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-      run: x minimax --cfg apikey="$MINIMAX_API_KEY"
 
     - name: run ai spec
       shell: bash
       env:
         MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-        INPUT_MODEL: ${{ inputs.model }}
         INPUT_MODE: ${{ inputs.mode }}
         GH_TOKEN: ${{ github.token }}
         ISSUE_NUM: ${{ github.event.issue.number }}

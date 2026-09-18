@@ -72,7 +72,7 @@ x-cmd-action/ai/
 
 5. **Pure shell, no Node.js.** All scripts are POSIX `bash`. No `npm install`, no dependency tree, fast cold-start. The tarball per sub-command is ~16 KB.
 
-6. **AI token via env, not action input.** The token is read from `MINIMAX_API_KEY` env var (passed via `secrets.MINIMAX_API_KEY`). Local equivalent: `x minimax --cfg apikey=...`.
+6. **AI token via env, not action input.** The token is read from env vars that x-cmd's provider modules pick up automatically — `MINIMAX_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY` (Grok), `MISTRAL_API_KEY`, `MOONSHOT_API_KEY`, `OPENAI_API_KEY`, etc. Pass one via `secrets.*` (e.g. `MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}`). Local equivalent: `x <provider> --cfg apikey=...`.
 
 ### Dependency graph
 
@@ -80,7 +80,7 @@ x-cmd-action/ai/
 x-cmd-action/ai/<subcmd>@v1
   ├── uses → x-cmd-action/x-cmd@v1          # install x-cmd
   ├── uses → x-cmd-action/this-repo@v1       # clone current repo for gh context
-  └── uses → secrets.MINIMAX_API_KEY (env)     # only sub-commands that call an LLM
+  └── uses → secrets.<PROVIDER>_API_KEY (env)  # only sub-commands that call an LLM
 ```
 
 ## Sub-command details
@@ -92,7 +92,6 @@ Triggered on `issues: opened`. Reads the issue body + comments, asks the AI for 
 ```yaml
 - uses: x-cmd-action/ai/triage@v1
   with:
-    model: minimax         # or openai:gpt-4, anthropic:claude-fable-5, ...
     apply-labels: 'true'   # or 'false' to comment only
   env:
     MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
@@ -100,7 +99,6 @@ Triggered on `issues: opened`. Reads the issue body + comments, asks the AI for 
 
 | Input | Default | Description |
 |---|---|---|
-| `model` | `minimax` | AI model identifier (provider routing handled by `x ai request`) |
 | `apply-labels` | `true` | Apply suggested labels automatically; set to `false` to comment only |
 
 ### `ai/reply` — react + reply on keyword
@@ -250,15 +248,15 @@ All seven sub-commands are **implemented** as of v1:
 
 | Sub-command | Implementation |
 |---|---|
-| `triage` | Calls `x ai request` with structured prompt (type/priority/area/labels/summary), applies labels |
+| `triage` | Delegates to `x ai triage --json` (priority/area/labels built in), posts summary + applies labels |
 | `reply` | Strict word-boundary keyword match, per-target reaction dedupe (no AI token required) |
-| `review` | Fetches PR diff via `gh pr diff`, asks AI for security/style/suggestions/summary, posts as PR comment |
-| `changelog` | Collects closed issues + merged PRs in last N days, AI groups by feat/fix/perf/docs |
-| `translate` | Reads file, AI i18n translation (Markdown-aware, preserves code blocks) |
-| `spec` | RFC template fill-in (mode=rfc) or post-mortem extraction (mode=postmortem) from issue + comments |
-| `commit` | Conventional Commits check (regex against commit log) or AI generate from staged diff |
+| `review` | Fetches PR diff via `gh pr diff`, delegates to `x ai review -`, posts as PR comment |
+| `changelog` | Collects closed issues + merged PRs in last N days, delegates to `x ai changelog -` |
+| `translate` | Delegates to `x ai translate` (Markdown-aware prompt preserves code blocks) |
+| `spec` | Fetches issue + comments, delegates to `x ai spec --mode rfc\|postmortem -` |
+| `commit` | Conventional Commits check via `x ai commit --check`, or `x ai commit --generate --full` |
 
-All AI sub-commands require `MINIMAX_API_KEY` env (or equivalent `x <provider> --cfg apikey=...` config).
+All AI sub-commands need one provider token via env (e.g. `MINIMAX_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY`, `MISTRAL_API_KEY`, `MOONSHOT_API_KEY`, `OPENAI_API_KEY`, ...), or an equivalent `x <provider> --cfg apikey=...` config.
 
 ## License
 

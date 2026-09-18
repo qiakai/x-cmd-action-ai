@@ -1,67 +1,78 @@
 #!/usr/bin/env bash
 # x-cmd-action/ai/triage — AI issue triage
+#
+# NO set -e / set -u / pipefail: x-cmd source-loads `x` as a shell
+# function that may `exit 1` internally — strict modes get the script
+# killed by sourced functions instead of surfacing errors. Explicit
+# checks and ${VAR:-defaults} are used instead.
 
-set -euo errexit
+# Resolve action dir robustly.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+: "${ACTION_PATH:=$SCRIPT_DIR}"
 
-: "${INPUT_MODEL:=minimax}"
+# The x-cmd-action/x-cmd step only installs x-cmd onto disk; each `run`
+# step is a fresh shell, so the `x` function must be sourced here.
+if [ ! -f "$HOME/.x-cmd.root/X" ]; then
+  echo "triage: ERROR — x-cmd not installed at $HOME/.x-cmd.root/X" >&2
+  exit 1
+fi
+. "$HOME/.x-cmd.root/X" || { echo "triage: ERROR — failed to source x-cmd" >&2; exit 1; }
+command -v x >/dev/null 2>&1 || { echo "triage: ERROR — 'x' unavailable" >&2; exit 1; }
+
 : "${INPUT_APPLY_LABELS:=true}"
 : "${ISSUE_NUM:?ISSUE_NUM required}"
 
-echo "triage: issue #$ISSUE_NUM model=$INPUT_MODEL"
+echo "triage: issue #$ISSUE_NUM"
 
+# ── Fetch comments ──
 COMMENTS=$(gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUM/comments?per_page=10" \
   --jq '[.[] | {user: .user.login, body: .body}]' 2>/dev/null || echo '[]')
 
-PROMPT=$(cat <<EOF
-You are triaging a GitHub issue. Read it and output EXACTLY this format:
-
-type: <bug|feature|question|docs|chore>
-priority: <p0|p1|p2|p3>
-area: <one-word area label>
-labels: <comma-separated labels>
-summary: <one-line summary>
-
-Issue #$ISSUE_NUM: ${ISSUE_TITLE:-}
+# ── Compose the source material and delegate to `x ai triage` ──
+# (priority/area/labels/blocking prompt is built into x ai triage)
+SOURCE="Issue #$ISSUE_NUM: ${ISSUE_TITLE:-}
 
 ${ISSUE_BODY:-}
 
 Comments:
-$COMMENTS
-EOF
-)
+$COMMENTS"
 
-echo "triage: calling $INPUT_MODEL..."
-RESPONSE=$(printf '%s' "$PROMPT" | x ai request --model "$INPUT_MODEL" 2>&1) || {
-  echo "triage: AI call failed: $RESPONSE"
+echo "triage: calling x ai triage..."
+RC=0
+RESPONSE=$(printf '%s' "$SOURCE" | x ai triage --json) || RC=$?
+if [ "$RC" != "0" ] || [ -z "$RESPONSE" ]; then
+  echo "triage: AI call failed (rc=$RC) — see stderr output above"
   exit 1
-}
+fi
 
-COMMENT_BODY=$(cat <<EOF
-🤖 **ai triage** (\`$INPUT_MODEL\`)
+PRIORITY=$(printf '%s' "$RESPONSE" | jq -r '.priority // "unknown"' 2>/dev/null || echo "unknown")
+AREA=$(printf '%s' "$RESPONSE" | jq -r '.area // "unknown"' 2>/dev/null || echo "unknown")
+LABELS=$(printf '%s' "$RESPONSE" | jq -r '.labels // ""' 2>/dev/null || echo "")
+TLDR=$(printf '%s' "$RESPONSE" | jq -r '.tldr // ""' 2>/dev/null || echo "")
 
-\`\`\`
-$RESPONSE
-\`\`\`
+COMMENT_BODY="🤖 **ai triage**
 
-<sub>Triaged by [x-cmd-action/ai](https://github.com/x-cmd-action/ai)</sub>
-EOF
-)
+**Priority:** $PRIORITY · **Area:** $AREA
 
-gh issue comment "$ISSUE_NUM" --body "$COMMENT_BODY"
+**TL;DR:** ${TLDR:-n/a}
 
-if [ "$INPUT_APPLY_LABELS" = "true" ]; then
-  LABELS=$(printf '%s' "$RESPONSE" | grep -E '^labels:' | sed 's/^labels:[[:space:]]*//' || echo "")
-  if [ -n "$LABELS" ]; then
-    LABEL_ARGS=""
-    IFS=',' read -ra PARTS <<< "$LABELS"
-    for l in "${PARTS[@]}"; do
-      l_trim=$(printf '%s' "$l" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-      [ -n "$l_trim" ] && LABEL_ARGS="$LABEL_ARGS --label $l_trim"
-    done
-    # shellcheck disable=SC2086
-    gh issue edit "$ISSUE_NUM" $LABEL_ARGS 2>/dev/null || \
-      echo "triage: some labels not found, applied what existed"
-  fi
+**Suggested labels:** ${LABELS:-none}
+
+<sub>Triaged by [x-cmd-action/ai](https://github.com/x-cmd-action/ai)</sub>"
+
+gh issue comment "$ISSUE_NUM" --body "$COMMENT_BODY" && \
+  echo "triage: posted comment"
+
+if [ "$INPUT_APPLY_LABELS" = "true" ] && [ -n "$LABELS" ]; then
+  LABEL_ARGS=""
+  IFS=',' read -ra PARTS <<< "$LABELS"
+  for l in "${PARTS[@]}"; do
+    l_trim=$(printf '%s' "$l" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    [ -n "$l_trim" ] && LABEL_ARGS="$LABEL_ARGS --label $l_trim"
+  done
+  # shellcheck disable=SC2086
+  gh issue edit "$ISSUE_NUM" $LABEL_ARGS 2>/dev/null || \
+    echo "triage: some labels not found, applied what existed"
 fi
 
 echo "triage: done"

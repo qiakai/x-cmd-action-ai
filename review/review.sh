@@ -1,91 +1,60 @@
 #!/usr/bin/env bash
 # x-cmd-action/ai/review — AI PR code review
+#
+# NO set -e / set -u / pipefail: x-cmd source-loads `x` as a shell
+# function that may `exit 1` internally — strict modes get the script
+# killed by sourced functions instead of surfacing errors. Explicit
+# checks and ${VAR:-defaults} are used instead.
 
-set -euo errexit
+# Resolve action dir robustly.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+: "${ACTION_PATH:=$SCRIPT_DIR}"
 
-: "${INPUT_MODEL:=minimax}"
+# The x-cmd-action/x-cmd step only installs x-cmd onto disk; each `run`
+# step is a fresh shell, so the `x` function must be sourced here.
+if [ ! -f "$HOME/.x-cmd.root/X" ]; then
+  echo "review: ERROR — x-cmd not installed at $HOME/.x-cmd.root/X" >&2
+  exit 1
+fi
+. "$HOME/.x-cmd.root/X" || { echo "review: ERROR — failed to source x-cmd" >&2; exit 1; }
+command -v x >/dev/null 2>&1 || { echo "review: ERROR — 'x' unavailable" >&2; exit 1; }
+
 : "${PR_NUM:?PR_NUM required}"
 : "${MAX_DIFF_LINES:=1500}"
 
-echo "review: PR #$PR_NUM model=$INPUT_MODEL"
+echo "review: PR #$PR_NUM"
 
-# ── 1. Fetch PR diff ──
+# ── 1. Fetch PR description + diff ──
+PR_BODY=$(gh pr view "$PR_NUM" --repo "$GITHUB_REPOSITORY" --json body --jq '.body // ""' 2>/dev/null || echo "")
+
 DIFF=$(gh pr diff "$PR_NUM" --repo "$GITHUB_REPOSITORY" 2>/dev/null) || {
   echo "review: failed to fetch diff for PR #$PR_NUM"
   exit 1
 }
+[ -n "$DIFF" ] || { echo "review: empty diff for PR #$PR_NUM"; exit 1; }
 
-# Truncate huge diffs to keep prompts sane.
-DIFF_LINES=$(printf '%s' "$DIFF" | wc -l)
-if [ "$DIFF_LINES" -gt "$MAX_DIFF_LINES" ]; then
-  echo "review: diff is $DIFF_LINES lines, truncating to $MAX_DIFF_LINES"
-  DIFF=$(printf '%s' "$DIFF" | head -n "$MAX_DIFF_LINES")
-  DIFF="$DIFF
-
-(... truncated, $DIFF_LINES total lines)"
+# ── 2. Delegate the review to `x ai review` (structured-review prompt
+# is built in; stdin carries the PR description followed by the diff) ──
+echo "review: calling x ai review..."
+RC=0
+RESPONSE=$( {
+  printf 'Pull request #%s description:\n%s\n\n---\n\n' "$PR_NUM" "$PR_BODY"
+  printf '%s\n' "$DIFF"
+} | x ai review --max-lines "$MAX_DIFF_LINES" - ) || RC=$?
+if [ "$RC" != "0" ] || [ -z "$RESPONSE" ]; then
+  echo "review: AI review failed (rc=$RC) — see stderr output above"
+  exit 1
 fi
 
-# ── 2. Fetch PR description + comments ──
-PR_BODY=$(gh pr view "$PR_NUM" --repo "$GITHUB_REPOSITORY" --json body --jq '.body // ""')
-
-# ── 3. Build prompt ──
-PROMPT=$(cat <<EOF
-You are reviewing a GitHub Pull Request. Output a structured review.
-
-PR #$PR_NUM:
-$PR_BODY
-
-Diff:
-\`\`\`diff
-$DIFF
-\`\`\`
-
-Format your response EXACTLY as:
-
-## Overall
-<one-line verdict: LGTM | NEEDS WORK | BLOCKING>
-
-## Security
-<bullet list of security issues, or 'No issues found.'>
-
-## Style
-<bullet list of style issues, or 'No issues found.'>
-
-## Suggestions
-<bullet list of optional improvements, or 'None.'>
-
-## Summary
-<2-3 line summary of the change>
-EOF
-)
-
-# ── 4. Call AI ──
-echo "review: calling $INPUT_MODEL..."
-RESPONSE=$(printf '%s' "$PROMPT" | x ai request --model "$INPUT_MODEL" 2>&1) || {
-  echo "review: AI call failed: $RESPONSE"
-  exit 1
-}
-
-# ── 5. Post PR comment ──
-COMMENT_BODY=$(cat <<EOF
-🤖 **ai review** (\`$INPUT_MODEL\`)
+# ── 3. Post PR comment ──
+COMMENT_BODY="🤖 **ai review**
 
 $RESPONSE
 
 ---
-<sub>Reviewed by [x-cmd-action/ai](https://github.com/x-cmd-action/ai) · review sub-command</sub>
-EOF
-)
+<sub>Reviewed by [x-cmd-action/ai](https://github.com/x-cmd-action/ai) · review sub-command</sub>"
 
-gh pr comment "$PR_NUM" --repo "$GITHUB_REPOSITORY" --body "$COMMENT_BODY"
-
-echo "review: posted PR comment"
-
-# ── 6. Optional: store to mneme for future retrieval ──
-# (only if MNEME_KEY is provided)
-if [ -n "${MNEME_KEY:-}" ]; then
-  echo "review: storing to mneme (key=$MNEME_KEY)"
-  # Future: integrate with x-cmd-action/mneme@v1
-fi
+gh pr comment "$PR_NUM" --repo "$GITHUB_REPOSITORY" --body "$COMMENT_BODY" && \
+  echo "review: posted PR comment"
 
 echo "review: done"

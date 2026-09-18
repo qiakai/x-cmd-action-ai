@@ -1,33 +1,49 @@
 #!/usr/bin/env bash
 # x-cmd-action/ai/spec — RFC template + post-mortem generator
+#
+# NO set -e / set -u / pipefail: x-cmd source-loads `x` as a shell
+# function that may `exit 1` internally — strict modes get the script
+# killed by sourced functions instead of surfacing errors. Explicit
+# checks and ${VAR:-defaults} are used instead.
 
-set -euo errexit
+# Resolve action dir robustly.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+: "${ACTION_PATH:=$SCRIPT_DIR}"
 
-: "${INPUT_MODEL:=minimax}"
+# The x-cmd-action/x-cmd step only installs x-cmd onto disk; each `run`
+# step is a fresh shell, so the `x` function must be sourced here.
+if [ ! -f "$HOME/.x-cmd.root/X" ]; then
+  echo "spec: ERROR — x-cmd not installed at $HOME/.x-cmd.root/X" >&2
+  exit 1
+fi
+. "$HOME/.x-cmd.root/X" || { echo "spec: ERROR — failed to source x-cmd" >&2; exit 1; }
+command -v x >/dev/null 2>&1 || { echo "spec: ERROR — 'x' unavailable" >&2; exit 1; }
+
 : "${INPUT_MODE:?mode required (rfc|postmortem)}"
 : "${ISSUE_NUM:?ISSUE_NUM required}"
 
-echo "spec: mode=$INPUT_MODE issue=#$ISSUE_NUM model=$INPUT_MODEL"
+echo "spec: mode=$INPUT_MODE issue=#$ISSUE_NUM"
 
 # ── Fetch issue + comments ──
 ISSUE_JSON=$(gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUM" \
-  --jq '{title: .title, body: .body, labels: [.labels[].name], state: .state}')
+  --jq '{title: .title, body: .body, labels: [.labels[].name], state: .state}' 2>/dev/null) || {
+  echo "spec: failed to fetch issue #$ISSUE_NUM"
+  exit 1
+}
 
-TITLE=$(printf '%s' "$ISSUE_JSON" | jq -r '.title')
-BODY=$(printf '%s' "$ISSUE_JSON" | jq -r '.body // ""')
-LABELS=$(printf '%s' "$ISSUE_JSON" | jq -r '.labels | join(", ")')
-STATE=$(printf '%s' "$ISSUE_JSON" | jq -r '.state')
+TITLE=$(printf '%s' "$ISSUE_JSON" | jq -r '.title // ""' 2>/dev/null || echo "")
+BODY=$(printf '%s' "$ISSUE_JSON" | jq -r '.body // ""' 2>/dev/null || echo "")
+LABELS=$(printf '%s' "$ISSUE_JSON" | jq -r '.labels | join(", ")' 2>/dev/null || echo "")
+STATE=$(printf '%s' "$ISSUE_JSON" | jq -r '.state // ""' 2>/dev/null || echo "")
+
+if [ "$INPUT_MODE" = "postmortem" ] && [ "$STATE" != "closed" ]; then
+  echo "spec: WARNING — issue is not closed (state=$STATE). Post-mortem typically for closed bugs."
+fi
 
 COMMENTS=$(gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUM/comments?per_page=50" \
-  --jq '[.[] | {user: .user.login, body: .body}]')
+  --jq '[.[] | {user: .user.login, body: .body}]' 2>/dev/null || echo '[]')
 
-# ── Build prompt based on mode ──
-case "$INPUT_MODE" in
-  rfc)
-    PROMPT=$(cat <<EOF
-Generate an RFC (Request for Comments) document from this feature request issue.
-
-Issue #$ISSUE_NUM: $TITLE
+SOURCE="Issue #$ISSUE_NUM: $TITLE
 Labels: $LABELS
 State: $STATE
 
@@ -35,109 +51,27 @@ Body:
 $BODY
 
 Comments:
-$COMMENTS
+$COMMENTS"
 
-Use this exact RFC template:
-
-# RFC: <Title>
-
-## Summary
-<one paragraph: what and why>
-
-## Motivation
-<why is this needed? what problem does it solve?>
-
-## Detailed Design
-<how will it work? APIs, data flow, edge cases>
-
-## Alternatives Considered
-<what other approaches were considered? why not?>
-
-## Drawbacks
-<what are the downsides? risks?>
-
-## Open Questions
-<what needs further discussion?>
-
-## Unresolved Questions
-<what doesn't have a clear answer yet?>
-EOF
-)
-    ;;
-
-  postmortem)
-    if [ "$STATE" != "closed" ]; then
-      echo "spec: WARNING — issue is not closed (state=$STATE). Post-mortem typically for closed bugs."
-    fi
-
-    PROMPT=$(cat <<EOF
-Generate a structured post-mortem document from this closed bug issue.
-
-Issue #$ISSUE_NUM: $TITLE
-Labels: $LABELS
-State: $STATE
-
-Body:
-$BODY
-
-Comments (likely contains debugging + fix discussion):
-$COMMENTS
-
-Use this exact post-mortem template:
-
-# Post-Mortem: <Title>
-
-## Summary
-<one paragraph: what broke and the impact>
-
-## Timeline
-<bulleted chronology: when reported, when fixed, when deployed — extract from comments>
-
-## Root Cause
-<what actually caused the bug? technical detail>
-
-## Detection
-<how was it caught? user report, monitoring, CI?>
-
-## Resolution
-<how was it fixed? what changed?>
-
-## Lessons Learned
-<what did we learn? what should we do differently?>
-
-## Action Items
-<bulleted list of follow-ups: tests, monitoring, docs, refactors>
-EOF
-)
-    ;;
-
-  *)
-    echo "spec: invalid mode '$INPUT_MODE' (expected: rfc|postmortem)"
-    exit 1
-    ;;
-esac
-
-# ── Call AI ──
-echo "spec: calling $INPUT_MODEL..."
-RESPONSE=$(printf '%s' "$PROMPT" | x ai request --model "$INPUT_MODEL" 2>&1) || {
-  echo "spec: AI call failed: $RESPONSE"
+# ── Delegate to `x ai spec` (RFC / post-mortem templates are built in) ──
+echo "spec: calling x ai spec..."
+RC=0
+RESPONSE=$(printf '%s' "$SOURCE" | x ai spec --mode "$INPUT_MODE" -) || RC=$?
+if [ "$RC" != "0" ] || [ -z "$RESPONSE" ]; then
+  echo "spec: AI call failed (rc=$RC) — see stderr output above"
   exit 1
-}
+fi
 
 # ── Post comment ──
-COMMENT_BODY=$(cat <<EOF
-🤖 **ai spec** (\`$INPUT_MODE\`, \`$INPUT_MODEL\`)
+COMMENT_BODY="🤖 **ai spec** (\`$INPUT_MODE\`)
 
 $RESPONSE
 
 ---
-<sub-Generated by [x-cmd-action/ai](https://github.com/x-cmd-action/ai) · spec sub-command</sub-"
-EOF
-)
+<sub>Generated by [x-cmd-action/ai](https://github.com/x-cmd-action/ai) · spec sub-command</sub>"
 
-gh issue comment "$ISSUE_NUM" --body "$COMMENT_BODY"
-
-echo "spec: posted RFC/post-mortem as issue comment"
+gh issue comment "$ISSUE_NUM" --body "$COMMENT_BODY" && \
+  echo "spec: posted RFC/post-mortem as issue comment"
 
 # ── Optional: save to file ──
 if [ -n "${INPUT_FILE:-}" ]; then

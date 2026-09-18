@@ -8,10 +8,6 @@ inputs:
   mode:
     description: 'check (validate existing msg) or generate (write new msg).'
     required: true
-  model:
-    description: 'AI model to use.'
-    required: false
-    default: 'minimax'
 
 runs:
   using: composite
@@ -20,17 +16,10 @@ runs:
 
     - uses: x-cmd-action/this-repo@v1
 
-    - name: configure api key
-      if: env.MINIMAX_API_KEY != ''
-      shell: bash
-      env:
-        MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-      run: x minimax --cfg apikey="$MINIMAX_API_KEY"
 
     - name: run ai commit
       shell: bash
       env:
         MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-        INPUT_MODEL: ${{ inputs.model }}
         INPUT_MODE: ${{ inputs.mode }}
       run: bash "${{ github.action_path }}/commit.sh"
