@@ -2,7 +2,7 @@ name: ai/reply
 description: |
   React + reply when a configurable keyword is mentioned in issue/comment.
   Supports static reply or AI-generated reply via x ai reply (x-cmd resolves
-  the provider/credentials, e.g. MINIMAX_TOKEN, internally).
+  the provider/credentials, e.g. MINIMAX_API_KEY, internally).
   Strict word-boundary match. Per-target reaction dedupe.
   Concurrency-safe: single in-flight + single pending.
 

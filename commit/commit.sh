@@ -42,7 +42,7 @@ case "$INPUT_MODE" in
     done <<< "$COMMITS"
 
     # ── Optional AI review of borderline cases ──
-    if [ -n "${INPUT_REVIEW_INVALID:-}" ] && [ "$INVALID" -gt 0 ] && [ -n "${MINIMAX_TOKEN:-}" ]; then
+    if [ -n "${INPUT_REVIEW_INVALID:-}" ] && [ "$INVALID" -gt 0 ] && [ -n "${MINIMAX_API_KEY:-}" ]; then
       echo "commit: asking AI to review $INVALID invalid commits"
       PROMPT="Review these commit messages and suggest a Conventional Commits compliant version for each:
 

@@ -72,7 +72,7 @@ x-cmd-action/ai/
 
 5. **纯 shell,无 Node.js**。脚本都是 POSIX `bash`。不用 `npm install`,冷启动快。每个子命令的 tarball 仅约 16 KB。
 
-6. **AI token 走环境变量**。读 `MINIMAX_TOKEN` env var(由 `secrets.MINIMAX_TOKEN` 传入)。本地等价:`x minimax --cfg apikey=...`。
+6. **AI token 走环境变量**。读 `MINIMAX_API_KEY` env var(由 `secrets.MINIMAX_TOKEN` 传入)。本地等价:`x minimax --cfg apikey=...`。
 
 ### 依赖图
 
@@ -95,7 +95,7 @@ x-cmd-action/ai/<subcmd>@v1
     model: minimax         # 或 openai:gpt-4, anthropic:claude-fable-5, ...
     apply-labels: 'true'   # 'false' 只评论不贴标签
   env:
-    MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
 ```
 
 | Input | 默认 | 说明 |
@@ -136,7 +136,7 @@ x-cmd-action/ai/<subcmd>@v1
   with: { fetch-depth: 0 }
 - uses: x-cmd-action/ai/review@v1
   env:
-    MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
 ```
 
 ### `ai/changelog` — 周报生成器
@@ -160,7 +160,7 @@ jobs:
           days: 7
           output: file      # 或 'comment'
         env:
-          MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
 ```
 
 ### `ai/translate` — AI 多语言翻译
@@ -176,7 +176,7 @@ jobs:
     target: zh           # ISO 639-1 代码
     # output: README.zh.md   # 可选,默认: <stem>.<target>.<ext>
   env:
-    MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
 ```
 
 ### `ai/spec` — RFC 模板 + 故障复盘
@@ -191,7 +191,7 @@ jobs:
   with:
     mode: rfc            # 或 'postmortem'
   env:
-    MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
 ```
 
 ### `ai/commit` — Conventional Commits
@@ -258,7 +258,7 @@ v1 起,七个子命令**全部已实现**:
 | `spec` | RFC 模板自动填(mode=rfc) 或 故障复盘提取(mode=postmortem) |
 | `commit` | Conventional Commits 检查(正则匹配 commit log)或 AI 从 staged diff 生成 |
 
-所有 AI 子命令需要 `MINIMAX_TOKEN` env(或等价 `x <provider> --cfg apikey=...` 配置)。
+所有 AI 子命令需要 `MINIMAX_API_KEY` env(或等价 `x <provider> --cfg apikey=...` 配置)。
 
 ## 协议
 

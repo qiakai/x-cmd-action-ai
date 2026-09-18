@@ -24,16 +24,16 @@ runs:
     - uses: x-cmd-action/this-repo@v1
 
     - name: configure api key
-      if: env.MINIMAX_TOKEN != ''
+      if: env.MINIMAX_API_KEY != ''
       shell: bash
       env:
-        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
-      run: x minimax --cfg apikey="$MINIMAX_TOKEN"
+        MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
+      run: x minimax --cfg apikey="$MINIMAX_API_KEY"
 
     - name: run ai translate
       shell: bash
       env:
-        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+        MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
         INPUT_MODEL: ${{ inputs.model }}
         INPUT_SOURCE: ${{ inputs.source }}
         INPUT_TARGET: ${{ inputs.target }}

@@ -33,7 +33,7 @@ jobs:
       - name: ai call (isolated)
         shell: bash
         env:
-          MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
         run: |
           # No -e anywhere — we want to capture every failure mode.
           set +e
@@ -64,7 +64,7 @@ jobs:
           echo
 
           echo "## step 1: configure provider"
-          x minimax --cfg apikey="$MINIMAX_TOKEN" >"$OUT" 2>"$ERR"
+          x minimax --cfg apikey="$MINIMAX_API_KEY" >"$OUT" 2>"$ERR"
           PR=$?
           echo "provider step rc=$PR"
           if [ "$PR" = "0" ]; then echo "  out:"; cat "$OUT" | head -10; fi
@@ -146,14 +146,14 @@ jobs:
           x minimax --help 2>&1 | head -10 ; echo "  rc=$?"
 
           echo "## step 6: env-var-only path (no cfg)"
-          unset MINIMAX_TOKEN
-          echo "MINIMAX_TOKEN env=$MINIMAX_TOKEN"
+          unset MINIMAX_API_KEY
+          echo "MINIMAX_API_KEY env=$MINIMAX_API_KEY"
           echo "running x minimax --cfg cat under subshell (no env passed in):"
           ( x minimax --cfg cat ) || echo "  subshell failed"
-          echo "running with env MINIMAX_TOKEN re-set:"
-          MINIMAX_TOKEN="${MINIMAX_TOKEN:-}" ( x minimax --cfg cat ) || echo "  still failed"
-          echo "what does MINIMAX_TOKEN env look like:"
-          echo "  $MINIMAX_TOKEN" | head -c 50
+          echo "running with env MINIMAX_API_KEY re-set:"
+          MINIMAX_API_KEY="${MINIMAX_API_KEY:-}" ( x minimax --cfg cat ) || echo "  still failed"
+          echo "what does MINIMAX_API_KEY env look like:"
+          echo "  $MINIMAX_API_KEY" | head -c 50
 
           echo
           echo "## step 6: final stderr tail"

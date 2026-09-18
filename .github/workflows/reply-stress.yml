@@ -39,7 +39,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_TOKEN }}
           ISSUE_NUM: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
