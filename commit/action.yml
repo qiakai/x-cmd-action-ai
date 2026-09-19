@@ -8,10 +8,63 @@ description: |
   MINIMAX_API_KEY) — composite action steps cannot reference the
   secrets context directly.
 
+  generate mode stages all working-tree changes (input stage_all,
+  default true) and exports the message as the `commit_message`
+  output. To actually commit and push, follow with a run step:
+
+      - uses: qiakai/x-cmd-action-ai/commit@main
+        id: commit
+        with:
+          mode: generate
+        env:
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+      - name: commit & push
+        if: steps.commit.outputs.commit_message != ''
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "${{ steps.commit.outputs.commit_message }}"
+          git push
+
+  Pushing needs `permissions: contents: write` on the job.
+
 inputs:
   mode:
-    description: 'check (validate existing msg) or generate (write new msg).'
+    description: 'check (validate existing msgs) or generate (write new msg).'
     required: true
+  commit_limit:
+    description: 'check mode: max commits to validate.'
+    required: false
+    default: '50'
+  fail_on_invalid:
+    description: 'check mode: fail the step when invalid commits are found.'
+    required: false
+    default: 'true'
+  review_invalid:
+    description: |
+      check mode: non-empty value posts an AI review comment (via
+      `x ai commit --check`) listing invalid commits + suggested
+      rewrites to the PR given by pr_num. Requires GH_TOKEN with
+      issues/pull-requests:write; on failure the review falls back
+      to the job summary.
+    required: false
+    default: ''
+  pr_num:
+    description: 'check mode: PR number to post the review comment to.'
+    required: false
+    default: ''
+  stage_all:
+    description: |
+      generate mode: run `git add -A` first so new/untracked files are
+      included and the message always reflects the next commit. Set
+      false to commit only what the caller staged manually.
+    required: false
+    default: 'true'
+
+outputs:
+  commit_message:
+    description: 'Generated commit message (generate mode; empty when no changes).'
+    value: ${{ steps.run.outputs.commit_message }}
 
 runs:
   using: composite
@@ -22,7 +75,15 @@ runs:
 
 
     - name: run ai commit
+      id: run
       shell: bash
       env:
+        GH_TOKEN: ${{ github.token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
         INPUT_MODE: ${{ inputs.mode }}
+        INPUT_COMMIT_LIMIT: ${{ inputs.commit_limit }}
+        INPUT_FAIL_ON_INVALID: ${{ inputs.fail_on_invalid }}
+        INPUT_REVIEW_INVALID: ${{ inputs.review_invalid }}
+        INPUT_PR_NUM: ${{ inputs.pr_num }}
+        INPUT_STAGE_ALL: ${{ inputs.stage_all }}
       run: bash "${{ github.action_path }}/commit.sh"
