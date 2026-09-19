@@ -137,7 +137,7 @@ $REVIEW
     # Falls back to stdout when GITHUB_OUTPUT is unset (local dry-run).
     if [ -n "${GITHUB_OUTPUT:-}" ]; then
       {
-        echo "commit_message<<'X_COMMIT_EOF'"
+        echo "commit_message<<X_COMMIT_EOF"
         printf '%s\n' "$RESPONSE"
         echo "X_COMMIT_EOF"
       } >> "$GITHUB_OUTPUT"

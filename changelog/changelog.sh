@@ -64,10 +64,14 @@ CHANGE_LIST=$( {
 } )
 
 # ── 5. Delegate to `x ai changelog` (Keep-A-Changelog prompt is built
-# in and accepts a mix of commits / closed issues / merged PRs) ──
+# in and accepts a mix of commits / closed issues / merged PRs as a
+# change-list FILE) ──
 echo "changelog: calling x ai changelog..."
+TMPLOG=$(mktemp)
+printf '%s\n' "$CHANGE_LIST" > "$TMPLOG"
 RC=0
-RESPONSE=$(printf '%s\n' "$CHANGE_LIST" | x ai changelog -) || RC=$?
+RESPONSE=$(x ai changelog "$TMPLOG") || RC=$?
+rm -f "$TMPLOG"
 if [ "$RC" != "0" ] || [ -z "$RESPONSE" ]; then
   echo "changelog: AI call failed (rc=$RC) — see stderr output above"
   exit 1

@@ -24,6 +24,15 @@ command -v x >/dev/null 2>&1 || { echo "triage: ERROR — 'x' unavailable" >&2; 
 
 echo "triage: issue #$ISSUE_NUM"
 
+# ── Fetch issue title/body when not provided by the event payload ──
+# (workflow_dispatch has no github.event.issue — fetch it ourselves).
+if [ -z "${ISSUE_TITLE:-}" ] || [ -z "${ISSUE_BODY:-}" ]; then
+  ISSUE_JSON=$(gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUM" \
+    --jq '{title: .title, body: .body}' 2>/dev/null || echo '{}')
+  [ -z "${ISSUE_TITLE:-}" ] && ISSUE_TITLE=$(printf '%s' "$ISSUE_JSON" | jq -r '.title // ""' 2>/dev/null || echo "")
+  [ -z "${ISSUE_BODY:-}" ]  && ISSUE_BODY=$(printf '%s' "$ISSUE_JSON"  | jq -r '.body // ""'  2>/dev/null || echo "")
+fi
+
 # ── Fetch comments ──
 COMMENTS=$(gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUM/comments?per_page=10" \
   --jq '[.[] | {user: .user.login, body: .body}]' 2>/dev/null || echo '[]')

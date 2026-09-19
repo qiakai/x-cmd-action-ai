@@ -12,6 +12,10 @@ inputs:
   mode:
     description: 'rfc (auto-fill RFC template) or postmortem (extract from closed bug).'
     required: true
+  issue-number:
+    description: 'Issue to use as source material. Defaults to the issue that triggered the workflow.'
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -32,6 +36,6 @@ runs:
       env:
         INPUT_MODE: ${{ inputs.mode }}
         GH_TOKEN: ${{ github.token }}
-        ISSUE_NUM: ${{ github.event.issue.number }}
+        ISSUE_NUM: ${{ inputs.issue-number || github.event.issue.number }}
         GITHUB_REPOSITORY: ${{ github.repository }}
       run: bash "${{ github.action_path }}/spec.sh"

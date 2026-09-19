@@ -14,6 +14,10 @@ inputs:
     description: 'Apply suggested labels (true) or just comment (false).'
     required: false
     default: 'true'
+  issue-number:
+    description: 'Issue to triage. Defaults to the issue that triggered the workflow.'
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -34,7 +38,7 @@ runs:
       env:
         INPUT_APPLY_LABELS: ${{ inputs.apply-labels }}
         GH_TOKEN: ${{ github.token }}
-        ISSUE_NUM: ${{ github.event.issue.number }}
+        ISSUE_NUM: ${{ inputs.issue-number || github.event.issue.number }}
         ISSUE_TITLE: ${{ github.event.issue.title }}
         ISSUE_BODY: ${{ github.event.issue.body }}
         GITHUB_REPOSITORY: ${{ github.repository }}
