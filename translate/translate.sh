@@ -52,7 +52,7 @@ fi
 
 echo "translate: calling x ai translate..."
 RC=0
-RESPONSE=$(head -n "$MAX" "$INPUT_SOURCE" | x ai translate --to "$INPUT_TARGET" --from auto -) || RC=$?
+RESPONSE=$(head -n "$MAX" "$INPUT_SOURCE" | x ai translate --to "$INPUT_TARGET" --from auto) || RC=$?
 if [ "$RC" != "0" ] || [ -z "$RESPONSE" ]; then
   echo "translate: AI call failed (rc=$RC) — see stderr output above"
   exit 1

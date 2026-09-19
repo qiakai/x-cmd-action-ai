@@ -47,7 +47,7 @@ fi
 : "${INPUT_KEYWORD:=@x}"
 : "${INPUT_REACTION:=eyes}"
 : "${INPUT_COMMENT:=👀 on it}"
-: "${ISSUE_NUM:?ISSUE_NUM required}"
+: "${ISSUE_NUM:=}"   # only required when the keyword actually triggers
 : "${INPUT_USE_AI:=false}"
 : "${GH_TOKEN:?GH_TOKEN required}"
 
@@ -74,6 +74,8 @@ if [ "$SHOULD_TRIGGER" = false ]; then
   echo "reply: keyword '$INPUT_KEYWORD' not found (strict match), skipping"
   exit 0
 fi
+
+: "${ISSUE_NUM:?ISSUE_NUM required}"
 
 echo "reply: triggered on $GITHUB_EVENT_NAME for issue #$ISSUE_NUM"
 
