@@ -20,6 +20,10 @@ runs:
     - uses: x-cmd-action/x-cmd@v1
       with:
         stream: x7
+      env:
+        # x7 is public — clone over https instead of the get
+        # script's default git@github.com (no SSH keys on runners).
+        ___X_CMD_GET_GITPROVIDER: 'https://github.com/'
 
     - uses: x-cmd-action/this-repo@v1
 

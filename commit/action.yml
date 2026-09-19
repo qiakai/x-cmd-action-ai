@@ -10,23 +10,10 @@ description: |
 
   generate mode stages all working-tree changes (input stage_all,
   default true) and exports the message as the `commit_message`
-  output. To actually commit and push, follow with a run step:
-
-      - uses: qiakai/x-cmd-action-ai/commit@main
-        id: commit
-        with:
-          mode: generate
-        env:
-          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-      - name: commit & push
-        if: steps.commit.outputs.commit_message != ''
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "${{ steps.commit.outputs.commit_message }}"
-          git push
-
-  Pushing needs `permissions: contents: write` on the job.
+  output. To actually commit and push, follow with a run step that
+  reads the output (e.g. `git commit -m "$MSG"`) and pushes. Requires
+  the provider token as caller-side env (e.g. MINIMAX_API_KEY from
+  your repo secrets) and `permissions: contents: write` when pushing.
 
 inputs:
   mode:
@@ -72,6 +59,10 @@ runs:
     - uses: x-cmd-action/x-cmd@v1
       with:
         stream: x7
+      env:
+        # x7 is public — clone over https instead of the get
+        # script's default git@github.com (no SSH keys on runners).
+        ___X_CMD_GET_GITPROVIDER: 'https://github.com/'
 
     - uses: x-cmd-action/this-repo@v1
 
