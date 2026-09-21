@@ -5,38 +5,36 @@ description: |
 
   Local equivalent: x ai triage
 
+  Requires the provider token as caller-side env (e.g.
+  MINIMAX_API_KEY) — composite action steps cannot reference the
+  secrets context directly.
+
 inputs:
-  model:
-    description: 'AI model to use (e.g. minimax, openai:gpt-4).'
-    required: false
-    default: 'minimax'
   apply-labels:
     description: 'Apply suggested labels (true) or just comment (false).'
     required: false
     default: 'true'
+  issue-number:
+    description: 'Issue to triage. Defaults to the issue that triggered the workflow.'
+    required: false
+    default: ''
 
 runs:
   using: composite
   steps:
     - uses: x-cmd-action/x-cmd@v1
+      with:
+        stream: x7
 
     - uses: x-cmd-action/this-repo@v1
 
-    - name: configure api key
-      if: env.MINIMAX_TOKEN != ''
-      shell: bash
-      env:
-        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
-      run: x minimax --cfg apikey="$MINIMAX_TOKEN"
 
     - name: run ai triage
       shell: bash
       env:
-        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
-        INPUT_MODEL: ${{ inputs.model }}
         INPUT_APPLY_LABELS: ${{ inputs.apply-labels }}
         GH_TOKEN: ${{ github.token }}
-        ISSUE_NUM: ${{ github.event.issue.number }}
+        ISSUE_NUM: ${{ inputs.issue-number || github.event.issue.number }}
         ISSUE_TITLE: ${{ github.event.issue.title }}
         ISSUE_BODY: ${{ github.event.issue.body }}
         GITHUB_REPOSITORY: ${{ github.repository }}

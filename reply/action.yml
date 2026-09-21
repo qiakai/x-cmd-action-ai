@@ -1,7 +1,8 @@
 name: ai/reply
 description: |
   React + reply when a configurable keyword is mentioned in issue/comment.
-  Supports static reply or AI-generated reply via x agent request --harness x-chat.
+  Supports static reply or AI-generated reply via x ai reply (x-cmd resolves
+  the provider/credentials, e.g. MINIMAX_API_KEY, internally).
   Strict word-boundary match. Per-target reaction dedupe.
   Concurrency-safe: single in-flight + single pending.
 
@@ -21,33 +22,20 @@ inputs:
     required: false
     default: '👀 on it'
   use_ai:
-    description: 'Generate reply via x agent request instead of using static comment.'
+    description: 'Generate reply via x ai reply instead of using static comment.'
     required: false
     default: 'false'
-  harness:
-    description: 'AI harness to use when use_ai is true.'
-    required: false
-    default: 'x-chat'
-  provider:
-    description: 'AI provider for credential setup (minimax, deepseek, openai). If empty, inferred from API key env vars.'
-    required: false
-    default: ''
-  model:
-    description: 'AI model to use. Format is provider-specific, e.g. gpt-4, deepseek-chat.'
-    required: false
-    default: ''
   prompt:
     description: |
-      Inline system prompt. Highest priority — overrides `prompt-file` and the
-      built-in default. Useful for one-off custom behavior in a single workflow.
+      Inline extra guidance prepended to the AI input. Optional — the
+      issue-safety rules are built into `x ai reply` and always apply.
     required: false
     default: ''
   prompt-file:
     description: |
       Path to a markdown file (relative to the action's repo root or the
-      workflow's checkout) holding the system prompt. Used when `prompt`
-      is empty. Falls back to the built-in `prompt.default.md` if the file
-      is not found.
+      workflow's checkout) holding extra guidance. Used when `prompt` is
+      empty. Ignored if the file is not found.
     required: false
     default: ''
 
@@ -73,13 +61,8 @@ runs:
         INPUT_REACTION: ${{ inputs.reaction }}
         INPUT_COMMENT: ${{ inputs.comment }}
         INPUT_USE_AI: ${{ inputs.use_ai }}
-        INPUT_HARNESS: ${{ inputs.harness }}
-        INPUT_PROVIDER: ${{ inputs.provider }}
-        INPUT_MODEL: ${{ inputs.model }}
         INPUT_PROMPT: ${{ inputs.prompt }}
         INPUT_PROMPT_FILE: ${{ inputs.prompt-file }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_EVENT_NAME: ${{ github.event_name }}
-        # Pass the action's own directory so reply.sh can read prompt.default.md
-        ACTION_PATH: ${{ github.action_path }}
       run: bash "${{ github.action_path }}/reply.sh"

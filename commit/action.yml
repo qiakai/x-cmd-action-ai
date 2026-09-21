@@ -4,33 +4,72 @@ description: |
 
   Local equivalent: x ai commit
 
+  Requires the provider token as caller-side env (e.g.
+  MINIMAX_API_KEY) — composite action steps cannot reference the
+  secrets context directly.
+
+  generate mode stages all working-tree changes (input stage_all,
+  default true) and exports the message as the `commit_message`
+  output. To actually commit and push, follow with a run step that
+  reads the output (e.g. `git commit -m "$MSG"`) and pushes. Requires
+  the provider token as caller-side env (e.g. MINIMAX_API_KEY from
+  your repo secrets) and `permissions: contents: write` when pushing.
+
 inputs:
   mode:
-    description: 'check (validate existing msg) or generate (write new msg).'
+    description: 'check (validate existing msgs) or generate (write new msg).'
     required: true
-  model:
-    description: 'AI model to use.'
+  commit_limit:
+    description: 'check mode: max commits to validate.'
     required: false
-    default: 'minimax'
+    default: '50'
+  fail_on_invalid:
+    description: 'check mode: fail the step when invalid commits are found.'
+    required: false
+    default: 'true'
+  review_invalid:
+    description: |
+      check mode: non-empty value posts an AI review comment (via
+      `x ai commit --check`) listing invalid commits + suggested
+      rewrites to the PR given by pr_num. Requires GH_TOKEN with
+      issues/pull-requests:write; on failure the review falls back
+      to the job summary.
+    required: false
+    default: ''
+  pr_num:
+    description: 'check mode: PR number to post the review comment to.'
+    required: false
+    default: ''
+  stage_all:
+    description: |
+      generate mode: run `git add -A` first so new/untracked files are
+      included and the message always reflects the next commit. Set
+      false to commit only what the caller staged manually.
+    required: false
+    default: 'true'
+
+outputs:
+  commit_message:
+    description: 'Generated commit message (generate mode; empty when no changes).'
+    value: ${{ steps.run.outputs.commit_message }}
 
 runs:
   using: composite
   steps:
     - uses: x-cmd-action/x-cmd@v1
-
-    - uses: x-cmd-action/this-repo@v1
-
-    - name: configure api key
-      if: env.MINIMAX_TOKEN != ''
-      shell: bash
-      env:
-        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
-      run: x minimax --cfg apikey="$MINIMAX_TOKEN"
+      with:
+        stream: x7
 
     - name: run ai commit
+      id: run
       shell: bash
       env:
-        MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
-        INPUT_MODEL: ${{ inputs.model }}
+        GH_TOKEN: ${{ github.token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
         INPUT_MODE: ${{ inputs.mode }}
+        INPUT_COMMIT_LIMIT: ${{ inputs.commit_limit }}
+        INPUT_FAIL_ON_INVALID: ${{ inputs.fail_on_invalid }}
+        INPUT_REVIEW_INVALID: ${{ inputs.review_invalid }}
+        INPUT_PR_NUM: ${{ inputs.pr_num }}
+        INPUT_STAGE_ALL: ${{ inputs.stage_all }}
       run: bash "${{ github.action_path }}/commit.sh"

@@ -72,7 +72,7 @@ x-cmd-action/ai/
 
 5. **纯 shell,无 Node.js**。脚本都是 POSIX `bash`。不用 `npm install`,冷启动快。每个子命令的 tarball 仅约 16 KB。
 
-6. **AI token 走环境变量**。读 `MINIMAX_TOKEN` env var(由 `secrets.MINIMAX_TOKEN` 传入)。本地等价:`x minimax --cfg apikey=...`。
+6. **AI token 走环境变量**。token 由 x-cmd 各 provider 模块自动从环境变量读取 —— `MINIMAX_API_KEY`、`DEEPSEEK_API_KEY`、`GEMINI_API_KEY`、`XAI_API_KEY`(Grok)、`MISTRAL_API_KEY`、`MOONSHOT_API_KEY`、`OPENAI_API_KEY` 等。通过 `secrets.*` 传入(如 `MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}`)。本地等价:`x <provider> --cfg apikey=...`。
 
 ### 依赖图
 
@@ -80,7 +80,7 @@ x-cmd-action/ai/
 x-cmd-action/ai/<subcmd>@v1
   ├── uses → x-cmd-action/x-cmd@v1          # 安装 x-cmd
   ├── uses → x-cmd-action/this-repo@v1       # clone 当前仓库,给 gh 用
-  └── uses → secrets.MINIMAX_TOKEN (env)     # 仅调用 LLM 的子命令需要
+  └── uses → secrets.<PROVIDER>_API_KEY (env)  # 仅调用 LLM 的子命令需要
 ```
 
 ## 子命令详解
@@ -95,12 +95,11 @@ x-cmd-action/ai/<subcmd>@v1
     model: minimax         # 或 openai:gpt-4, anthropic:claude-fable-5, ...
     apply-labels: 'true'   # 'false' 只评论不贴标签
   env:
-    MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 | Input | 默认 | 说明 |
 |---|---|---|
-| `model` | `minimax` | AI 模型标识(provider 路由由 `x ai request` 处理) |
 | `apply-labels` | `true` | 自动贴建议的标签;`false` 只发评论 |
 
 ### `ai/reply` — @关键字反应 + 回复
@@ -136,7 +135,7 @@ x-cmd-action/ai/<subcmd>@v1
   with: { fetch-depth: 0 }
 - uses: x-cmd-action/ai/review@v1
   env:
-    MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 ### `ai/changelog` — 周报生成器
@@ -160,7 +159,7 @@ jobs:
           days: 7
           output: file      # 或 'comment'
         env:
-          MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 ### `ai/translate` — AI 多语言翻译
@@ -176,7 +175,7 @@ jobs:
     target: zh           # ISO 639-1 代码
     # output: README.zh.md   # 可选,默认: <stem>.<target>.<ext>
   env:
-    MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 ### `ai/spec` — RFC 模板 + 故障复盘
@@ -191,7 +190,7 @@ jobs:
   with:
     mode: rfc            # 或 'postmortem'
   env:
-    MINIMAX_TOKEN: ${{ secrets.MINIMAX_TOKEN }}
+    MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
 ```
 
 ### `ai/commit` — Conventional Commits
@@ -250,15 +249,15 @@ v1 起,七个子命令**全部已实现**:
 
 | Sub-command | 实现 |
 |---|---|
-| `triage` | 调 `x ai request` 跑结构化 prompt(type/priority/area/labels/summary),自动贴标签 |
+| `triage` | 委托给 `x ai triage --json`(priority/area/labels 内置),发摘要 + 自动贴标签 |
 | `reply` | 严格词边界匹配,per-target reaction 去重(不需要 AI token) |
-| `review` | 用 `gh pr diff` 拿 PR diff,问 AI 要 security/style/suggestions/summary,作为 PR 评论发出去 |
-| `changelog` | 收集过去 N 天关闭的 Issue + 合并的 PR,AI 按 feat/fix/perf/docs 分组 |
-| `translate` | 读文件,AI i18n 翻译(保留 Markdown,code block 不译) |
-| `spec` | RFC 模板自动填(mode=rfc) 或 故障复盘提取(mode=postmortem) |
-| `commit` | Conventional Commits 检查(正则匹配 commit log)或 AI 从 staged diff 生成 |
+| `review` | 用 `gh pr diff` 拿 PR diff,委托给 `x ai review -`,作为 PR 评论发出去 |
+| `changelog` | 收集过去 N 天关闭的 Issue + 合并的 PR,委托给 `x ai changelog -` |
+| `translate` | 委托给 `x ai translate`(内置保留 Markdown/code block 的 prompt) |
+| `spec` | 取 issue + 评论,委托给 `x ai spec --mode rfc\|postmortem -` |
+| `commit` | 用 `x ai commit --check` 做 Conventional Commits 检查,或 `x ai commit --generate --full` 生成 |
 
-所有 AI 子命令需要 `MINIMAX_TOKEN` env(或等价 `x <provider> --cfg apikey=...` 配置)。
+所有 AI 子命令需要一个 provider token(走 env,如 `MINIMAX_API_KEY`、`DEEPSEEK_API_KEY`、`GEMINI_API_KEY`、`XAI_API_KEY`、`MISTRAL_API_KEY`、`MOONSHOT_API_KEY`、`OPENAI_API_KEY` 等),或等价 `x <provider> --cfg apikey=...` 配置。
 
 ## 协议
 
