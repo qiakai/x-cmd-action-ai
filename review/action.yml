@@ -21,6 +21,10 @@ runs:
         ___X_CMD_GET_GITPROVIDER: 'https://github.com/'
 
     - uses: x-cmd-action/this-repo@v1
+      with:
+        # on pull_request events github.ref_name is 'N/merge', which is
+        # not a fetchable ref — pin the PR head commit instead
+        ref: ${{ github.event.pull_request.head.sha || github.ref_name }}
 
 
     - name: run ai review
