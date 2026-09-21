@@ -9,8 +9,6 @@ description: |
   MINIMAX_API_KEY) — composite action steps cannot reference the
   secrets context directly.
 
-inputs:
-
 runs:
   using: composite
   steps:
