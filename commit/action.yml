@@ -64,9 +64,6 @@ runs:
         # script's default git@github.com (no SSH keys on runners).
         ___X_CMD_GET_GITPROVIDER: 'https://github.com/'
 
-    - uses: x-cmd-action/this-repo@v1
-
-
     - name: run ai commit
       id: run
       shell: bash
