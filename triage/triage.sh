@@ -69,8 +69,12 @@ COMMENT_BODY="🤖 **ai triage**
 
 <sub>Triaged by [x-cmd-action/ai](https://github.com/x-cmd-action/ai)</sub>"
 
-gh issue comment "$ISSUE_NUM" --body "$COMMENT_BODY" && \
+if gh issue comment "$ISSUE_NUM" --body "$COMMENT_BODY"; then
   echo "triage: posted comment"
+else
+  echo "triage: WARNING — gh issue comment failed (GH_TOKEN permissions?) — writing to job summary" >&2
+  printf '%s\n' "$COMMENT_BODY" >> "${GITHUB_STEP_SUMMARY:-/dev/null}" 2>/dev/null || true
+fi
 
 if [ "$INPUT_APPLY_LABELS" = "true" ] && [ -n "$LABELS" ]; then
   LABEL_ARGS=""
