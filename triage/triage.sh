@@ -85,7 +85,7 @@ if [ "$INPUT_APPLY_LABELS" = "true" ] && [ -n "$LABELS" ]; then
     # Create the label if the repo doesn't have it yet, then apply it.
     gh label create "$l_trim" --force >/dev/null 2>&1 || \
       echo "triage: WARNING — could not create label '$l_trim'"
-    LABEL_ARGS="$LABEL_ARGS --label $l_trim"
+    LABEL_ARGS="$LABEL_ARGS --add-label $l_trim"
   done
   # shellcheck disable=SC2086
   gh issue edit "$ISSUE_NUM" $LABEL_ARGS || \
