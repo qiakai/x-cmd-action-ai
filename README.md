@@ -82,7 +82,7 @@ Each sub-command is documented as **what it's for → when it triggers → how t
 
 ### `ai/triage` — auto-triage new issues
 
-**What it's for**: when a new issue is created, it auto-classifies type / priority / area, applies labels, and posts a summary comment — no manual triage needed.
+**What it's for**: when a new issue is created, it auto-classifies type / priority / area and applies labels, optionally posting a summary comment — mix and match via `comment` / `apply-labels`.
 
 **When it triggers**: `issues: opened`. You can also triage any issue manually via `issue-number`.
 
@@ -102,6 +102,7 @@ jobs:
       - uses: x-cmd-action/ai/triage@v1
         with:
           apply-labels: 'true'     # 'false' to comment only, without labels
+          comment: 'true'          # 'false' to apply labels without posting a comment
           # issue-number: '123'    # optional: triage a specific issue (default: the one that triggered)
         env:
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
@@ -110,7 +111,10 @@ jobs:
 | Input | Default | Description |
 |---|---|---|
 | `apply-labels` | `true` | Apply suggested labels; `false` to comment only |
+| `comment` | `true` | Post the summary comment; `false` to apply labels silently |
 | `issue-number` | the triggering issue | Triage a specific issue number |
+
+The **TL;DR** line only appears when the AI actually produced a summary — no `n/a` placeholder.
 
 ### `ai/reply` — react + reply on keyword
 

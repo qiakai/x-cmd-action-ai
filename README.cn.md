@@ -82,7 +82,7 @@ jobs:
 
 ### `ai/triage` — 新 Issue 自动分拣
 
-**有什么用**:新 Issue 创建后,自动判断类型 / 优先级 / 所属模块,贴上标签,并发一条带摘要的分析评论,省掉人工逐条分拣。
+**有什么用**:新 Issue 创建后,自动判断类型 / 优先级 / 所属模块,贴上标签,并可发一条带摘要的分析评论(摘要和标签二选一或都要,由 `comment` / `apply-labels` 控制)。
 
 **什么时候触发**:`issues: opened`。也可以手动指定 `issue-number` 分拣任意 Issue。
 
@@ -102,6 +102,7 @@ jobs:
       - uses: x-cmd-action/ai/triage@v1
         with:
           apply-labels: 'true'     # 'false' 则只发评论、不贴标签
+          comment: 'true'          # 'false' 则不打标签时也不发评论(只贴标签)
           # issue-number: '123'    # 可选:手动指定要分拣的 Issue(默认取触发事件的 Issue)
         env:
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
@@ -110,7 +111,10 @@ jobs:
 | Input | 默认 | 说明 |
 |---|---|---|
 | `apply-labels` | `true` | 自动贴建议的标签;`false` 只发评论 |
+| `comment` | `true` | 是否发送分析评论;`false` 时只贴标签不发评论 |
 | `issue-number` | 触发事件的 Issue | 手动指定要分拣的 Issue 编号 |
+
+评论中的 **TL;DR** 摘要只在 AI 实际产出时显示,不会输出 `n/a` 占位。
 
 ### `ai/reply` — @关键字自动反应 + 回复
 
