@@ -43,7 +43,7 @@ on:
 jobs:
   triage:
     runs-on: ubuntu-latest
-    permissions: { issues: write }
+    permissions: { issues: write, pull-requests: write }   # PR conversations need pull-requests: write
     steps:
       - uses: x-cmd-action/ai/triage@v1
         env:
@@ -123,6 +123,8 @@ The **TL;DR** line only appears when the AI actually produced a summary — no `
 **When it triggers**: `issue_comment: created` (new comment) and `issues: opened` (new issue).
 
 **Notes**: strict word-boundary matching (`@x` won't trigger on `@x-cmd`); the same reaction is added only once per comment, so re-edits don't spam.
+
+**Note:** when the `@` mention happens on a **pull request**, both the reaction and the reply write to the PR conversation — the workflow needs `pull-requests: write` in addition to `issues: write`, or every write fails with 403 `Resource not accessible by integration`.
 
 **How to use it**:
 

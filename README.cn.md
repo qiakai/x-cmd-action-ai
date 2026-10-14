@@ -43,7 +43,7 @@ on:
 jobs:
   triage:
     runs-on: ubuntu-latest
-    permissions: { issues: write }
+    permissions: { issues: write, pull-requests: write }   # PR 会话需要 pull-requests: write
     steps:
       - uses: x-cmd-action/ai/triage@v1
         env:
@@ -123,6 +123,8 @@ jobs:
 **什么时候触发**:`issue_comment: created`(新评论)、`issues: opened`(新 Issue)。
 
 **特点**:严格词边界匹配,`@x` 不会误触发 `@x-cmd`;同一评论上同一 reaction 只加一次,反复编辑也不会刷屏。
+
+**注意**:如果 @ 出现在 **PR** 的评论里,reaction 和回复都是写 PR 会话,workflow 除了 `issues: write` 还要给 `pull-requests: write`,否则会报 403 `Resource not accessible by integration`。
 
 **怎么用**:
 
